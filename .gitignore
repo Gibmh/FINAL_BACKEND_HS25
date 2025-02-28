@@ -1,0 +1,14 @@
+<<<<<<< HEAD
+/node_modules
+/vendor
+/.idea
+.idea/
+.env
+README.md
+package.json
+package-lock.json
+
+=======
+node_modules/
+.env
+>>>>>>> 93bc2ce (code hiện tại 28/2/2025)
