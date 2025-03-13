@@ -1,46 +1,52 @@
 const db = require("../models/db");
 
-// Tạo mới đối tượng
- exports.createObject = (req, res) => {
+exports.createObject = (req, res) => {
   const { typeOb, data } = req.body;
-  if (!typeOb || !data)
+  console.log(req.body);
+  if (!typeOb || !data) {
     return res.status(400).json({ message: "Missing typeOb or data" });
-
-  let tableName,
-    idField,
-    needCheckID = true;
-
-  switch (typeOb) {
-    case "product":
-      tableName = "products";
-      idField = "id_product";
-      break;
-    case "order":
-      tableName = "orders";
-      idField = "id_order";
-      needCheckID = false; // Không kiểm tra ID với orders
-      break;
-    case "member":
-      tableName = "members";
-      idField = "id_member";
-      break;
-    case "consignor":
-      tableName = "consignors";
-      idField = "id_consignor";
-      break;
-    default:
-      return res.status(400).json({ message: "Invalid typeOb" });
   }
 
-  // Nếu không phải "order" thì kiểm tra xem có ID không
+  const tableConfig = {
+    product: {
+      tableName: "products",
+      idField: "id_product",
+      needCheckID: true,
+    },
+    order: { tableName: "orders", idField: "id_order", needCheckID: false },
+    member: { tableName: "members", idField: "id_member", needCheckID: true },
+    consignor: {
+      tableName: "consignors",
+      idField: "id_consignor",
+      needCheckID: true,
+    },
+  };
+
+  const config = tableConfig[typeOb];
+  if (!config) {
+    return res.status(400).json({ message: "Invalid typeOb" });
+  }
+
+  const { tableName, idField, needCheckID } = config;
+
   if (needCheckID && !data[idField]) {
     return res.status(400).json({ message: `Missing ${idField}` });
   }
 
-  // Nếu không cần kiểm tra ID (chỉ áp dụng với orders), thực hiện insert ngay
   if (!needCheckID) {
     db.query(`INSERT INTO ${tableName} SET ?`, [data], (err, results) => {
       if (err) return res.status(500).send(err.message);
+
+      if (data.cash_back && data.id_consignor) {
+        db.query(
+          `UPDATE consignors SET cash_back = cash_back + ? WHERE id_consignor = ?`,
+          [data.cash_back, data.id_consignor],
+          (err) => {
+            if (err) return res.status(500).send(err.message);
+          }
+        );
+      }
+
       return res.status(201).json({
         success: true,
         message: "Create success!",
@@ -50,39 +56,50 @@ const db = require("../models/db");
     return;
   }
 
-  // Kiểm tra xem ID đã tồn tại chưa
-  const checkQuery = `SELECT COUNT(*) AS count FROM ${tableName} WHERE ${idField} = ?`;
-  db.query(checkQuery, [data[idField]], (err, results) => {
-    if (err) return res.status(500).send(err.message);
-
-    if (results[0].count > 0) {
-      return res.status(200).json({success: false, message: `${idField} already exists` });
-    }
-
-    // Nếu ID chưa tồn tại, tiến hành thêm mới
-    const insertQuery = `INSERT INTO ${tableName} SET ?`;
-
-    if (typeOb === "product") 
-	  {
-		  data.stock = data.quantity;
-		  if (data.discount == null ) data.discount = 0;
-		  if (data.cash_back == null ) data.cash_back = 0;
-	  }// Cập nhật stock cho sản phẩm
-   
-
-    db.query(insertQuery, [data], (err, results) => {
+  db.query(
+    `SELECT COUNT(*) AS count FROM ${tableName} WHERE ${idField} = ?`,
+    [data[idField]],
+    (err, results) => {
       if (err) return res.status(500).send(err.message);
-      res.status(201).json({
-        success: true,
-        message: "Create success!",
-        id: results.insertId,
+
+      if (results[0].count > 0) {
+        return res
+          .status(200)
+          .json({ success: false, message: `${idField} already exists` });
+      }
+
+      if (typeOb == "product") {
+        data.stock = data.quantity;
+        db.query(
+          `UPDATE consignors SET count = count + 1 WHERE id_consignor = ?`,
+          [data.id_consignor],
+          (err) => {
+            if (err) return res.status(500).send(err.message);
+          }
+        );
+      }
+      if (typeOb == "consignor") {
+        db.query(
+          `UPDATE members SET count = count + 1 WHERE id_member = ?`,
+          [data.id_member],
+          (err) => {
+            if (err) return res.status(500).send(err.message);
+          }
+        );
+      }
+
+      db.query(`INSERT INTO ${tableName} SET ?`, [data], (err, results) => {
+        if (err) return res.status(500).send(err.message);
+        res.status(201).json({
+          success: true,
+          message: "Create success!",
+          id: results.insertId,
+        });
       });
-    });
-  });
+    }
+  );
 };
 
-
-// Đọc tất cả đối tượng
 exports.readAllObjects = (req, res) => {
   const { typeOb } = req.query;
   if (!typeOb) return res.status(400).json({ message: "Missing typeOb" });
@@ -107,44 +124,55 @@ exports.readAllObjects = (req, res) => {
         .json({ success: false, message: "Invalid typeOb" });
   }
 
-  console.log("SQL Query:", query); // Giám sát câu lệnh SQL
+  console.log("SQL Query:", query);
 
   db.query(query, (err, results) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Query Results:", results); // Giám sát kết quả trả về
+    console.log("Query Results:", results);
     res.status(200).json({ success: true, data: results });
   });
 };
 
-// Đọc thông tin đối tượng theo id_member
 exports.readObjectById = (req, res) => {
-  const { typeOb, id_member } = req.query;
-  console.log("Request Params - typeOb:", typeOb, "id_member:", id_member); // Giám sát tham số truy vấn
+  const { typeUser, typeOb, id } = req.query;
+  console.log(
+    "Request Params - typeOb:",
+    typeOb,
+    "id:",
+    id,
+    "typeUser:",
+    typeUser
+  );
 
-  if (!typeOb || !id_member)
-    return res.status(400).json({ message: "Missing typeOb or ID" });
+  if (!typeOb || !id || !typeUser)
+    return res
+      .status(400)
+      .json({ message: "Missing typeOb or ID or typeUser" });
+  const validTables = {
+    product: "id_product",
+    order: "id_bill",
+    member: "id_member",
+    consignor: "id_consignor",
+  };
 
-  const validTables = ["products", "orders", "members", "consignors"];
-  if (!validTables.includes(typeOb + "s"))
+  if (!validTables[typeOb] || !validTables[typeUser]) {
     return res.status(400).json({ message: "Invalid typeOb" });
+  }
 
-  const query = `SELECT * FROM ${typeOb + "s"} WHERE id_member = ?`;
-  console.log("SQL Query:", query); // Giám sát câu lệnh SQL
+  const query = `SELECT * FROM ${typeOb}s WHERE ${validTables[typeUser]} = ?`;
+  console.log("SQL Query:", query);
 
-  db.query(query, [id_member], (err, results) => {
+  db.query(query, [id], (err, results) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Query Results:", results); // Giám sát kết quả trả về
-    // if (results.length === 0)
-    //   return res.status(404).json({ message: "Record not found" });
+    console.log("Query Results:", results);
     res.status(200).json({ success: true, data: results });
   });
 };
 
-// Cập nhật đối tượng
 exports.updateObject = (req, res) => {
   const { typeOb, id, data } = req.body;
   console.log(req.body);
-	if (!typeOb || !id || !data)
+  if (!typeOb || !id || !data)
     return res.status(400).json({ message: "Missing typeOb, ID or data" });
 
   let query;
@@ -165,56 +193,176 @@ exports.updateObject = (req, res) => {
       return res.status(400).json({ message: "Invalid typeOb" });
   }
 
-  console.log("SQL Query:", query); // Giám sát câu lệnh SQL
-  console.log("Data to Update:", data); // Giám sát dữ liệu được cập nhật
+  console.log("SQL Query:", query);
+  console.log("Data to Update:", data);
 
   db.query(query, [data, id], (err, results) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Update Results:", results); // Giám sát kết quả trả về
-    // if (results.affectedRows === 0)
-    //   return res.status(404).json({ message: "No record found to update" });
+    console.log("Update Results:", results);
     res.status(200).json({ success: true, message: "Updated successfully" });
   });
 };
 
-// Xóa đối tượng
 exports.deleteObject = (req, res) => {
   const { typeOb, id } = req.query;
-  if (!typeOb || !id)
+  if (!typeOb || !id) {
     return res.status(400).json({ message: "Missing typeOb or ID" });
-
-  let query;
-  switch (typeOb) {
-    case "product":
-      query = "DELETE FROM products WHERE id_product = ?";
-      break;
-    case "order":
-      query = "DELETE FROM orders WHERE id_bill = ?";
-      break;
-    case "member":
-      query = "DELETE FROM members WHERE id_member = ?";
-      break;
-    case "consignor":
-      query = "DELETE FROM consignors WHERE id_consignor = ?";
-      break;
-    default:
-      return res.status(400).json({ message: "Invalid typeOb" });
   }
 
-  console.log("SQL Query:", query); // Giám sát câu lệnh SQL
+  console.log("Request Params - typeOb:", typeOb, "ID:", id);
 
-  db.query(query, [id], (err, results) => {
-    if (err) return res.status(500).send(err.message);
-    console.log("Delete Results:", results); // Giám sát kết quả trả về
-    // if (results.affectedRows === 0)
-    //   return res.status(404).json({ message: "No record found to delete" });
-    res
-      .status(200)
-      .json({ success: true, message: "Record deleted successfully" });
-  });
+  if (typeOb === "product") {
+    db.query(
+      "SELECT id_consignor FROM products WHERE id_product = ?",
+      [id],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        if (results.length === 0) {
+          return res.status(404).json({ error: "Product not found" });
+        }
+
+        const id_consignor = results[0].id_consignor;
+
+        db.query("DELETE FROM products WHERE id_product = ?", [id], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+
+          db.query(
+            "UPDATE consignors SET count = count - 1 WHERE id_consignor = ?",
+            [id_consignor],
+            (err) => {
+              if (err) return res.status(500).json({ error: err.message });
+
+              res.status(200).json({
+                success: true,
+                message:
+                  "Product deleted successfully and consignor count updated",
+              });
+            }
+          );
+        });
+      }
+    );
+    return;
+  }
+
+  if (typeOb === "order") {
+    db.query("DELETE FROM orders WHERE id_bill = ?", [id], (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res
+        .status(200)
+        .json({ success: true, message: "Order deleted successfully" });
+    });
+    return;
+  }
+
+  if (typeOb === "member") {
+    db.query(
+      "SELECT id_consignor FROM consignors WHERE id_member = ?",
+      [id],
+      (err, consignors) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const consignorIds = consignors.map((c) => c.id_consignor);
+        if (consignorIds.length > 0) {
+          db.query(
+            "DELETE FROM products WHERE id_consignor IN (?)",
+            [consignorIds],
+            (err) => {
+              if (err) return res.status(500).json({ error: err.message });
+
+              db.query(
+                "DELETE FROM consignors WHERE id_member = ?",
+                [id],
+                (err) => {
+                  if (err) return res.status(500).json({ error: err.message });
+
+                  db.query(
+                    "DELETE FROM members WHERE id_member = ?",
+                    [id],
+                    (err) => {
+                      if (err)
+                        return res.status(500).json({ error: err.message });
+
+                      res.status(200).json({
+                        success: true,
+                        message:
+                          "Member deleted successfully along with related consignors and products",
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        } else {
+          db.query("DELETE FROM members WHERE id_member = ?", [id], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            res.status(200).json({
+              success: true,
+              message: "Member deleted successfully",
+            });
+          });
+        }
+      }
+    );
+    return;
+  }
+
+  if (typeOb === "consignor") {
+    db.query(
+      "SELECT id_member FROM consignors WHERE id_consignor = ?",
+      [id],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        if (results.length === 0) {
+          return res.status(404).json({ error: "Consignor not found" });
+        }
+
+        const id_member = results[0].id_member;
+
+        db.query("DELETE FROM products WHERE id_consignor = ?", [id], (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+
+          db.query(
+            "DELETE FROM consignors WHERE id_consignor = ?",
+            [id],
+            (err, results) => {
+              if (err) return res.status(500).json({ error: err.message });
+
+              if (results.affectedRows > 0) {
+                db.query(
+                  "UPDATE members SET count = count - 1 WHERE id_member = ?",
+                  [id_member],
+                  (err) => {
+                    if (err)
+                      return res.status(500).json({ error: err.message });
+
+                    res.status(200).json({
+                      success: true,
+                      message:
+                        "Consignor deleted successfully and member count updated",
+                    });
+                  }
+                );
+              } else {
+                res.status(200).json({
+                  success: true,
+                  message: "No consignor found with the given ID",
+                });
+              }
+            }
+          );
+        });
+      }
+    );
+    return;
+  }
+
+  res.status(400).json({ error: "Invalid typeOb" });
 };
-
-// Tìm kiếm đối tượng
 exports.searchObject = (req, res) => {
   const { typeOb, query, id_member } = req.query;
   console.log(
@@ -224,7 +372,7 @@ exports.searchObject = (req, res) => {
     query,
     "id_member:",
     id_member
-  ); // Giám sát tham số truy vấn
+  );
 
   if (!typeOb || !query || !id_member)
     return res
@@ -253,16 +401,15 @@ exports.searchObject = (req, res) => {
       return res.status(400).json({ message: "Invalid typeOb" });
   }
 
-  console.log("SQL Query:", sql); // Giám sát câu lệnh SQL
+  console.log("SQL Query:", sql);
 
   db.query(sql, [searchQuery, id_member], (err, results) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Query Results:", results); // Giám sát kết quả trả về
+    console.log("Query Results:", results);
     res.status(200).json({ success: true, data: results });
   });
 };
 
-// Đăng nhập
 exports.login = (req, res) => {
   const { id_member, password } = req.body;
   if (!id_member || !password)
@@ -270,12 +417,12 @@ exports.login = (req, res) => {
 
   const sql = "SELECT * FROM members WHERE id_member = ? AND password = ?";
 
-  console.log("SQL Query:", sql); // Giám sát câu lệnh SQL
-  console.log("Login Params - id_member:", id_member, "password:", password); // Giám sát dữ liệu đăng nhập
+  console.log("SQL Query:", sql);
+  console.log("Login Params - id_member:", id_member, "password:", password);
 
   db.query(sql, [id_member, password], (err, results) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Login Results:", results); // Giám sát kết quả trả về
+    console.log("Login Results:", results);
     if (results.length === 0)
       return res
         .status(200)
@@ -284,7 +431,6 @@ exports.login = (req, res) => {
   });
 };
 
-// Lấy detail theo id
 exports.getdetails = (req, res) => {
   console.log(req.query);
   const { typeOb, id } = req.query;
@@ -303,7 +449,7 @@ exports.getdetails = (req, res) => {
 
   const sql = `SELECT * FROM ${typeOb}s WHERE id_${typeOb} = ?`;
 
-  console.log("SQL Query:", sql); // Kiểm tra SQL
+  console.log("SQL Query:", sql);
 
   db.query(sql, [id], (err, results) => {
     if (err) {
@@ -319,4 +465,6 @@ exports.getdetails = (req, res) => {
     res.status(200).json({ success: true, data: results[0] });
   });
 };
-
+exports.cronjob = (req, res) => {
+  res.status(200).json({ success: true, message: "Cron job executed" });
+};

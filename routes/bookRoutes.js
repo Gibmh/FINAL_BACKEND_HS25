@@ -11,4 +11,6 @@ router.delete(String(process.env.API_DO), bookController.deleteObject);
 router.post(String(process.env.API_LC), bookController.login);
 router.get(String(process.env.API_S), bookController.searchObject);
 router.get(String(process.env.API_GDO), bookController.getdetails);
+router.get(String(process.env.API_CronJob), bookController.cronjob);
+
 module.exports = router;
