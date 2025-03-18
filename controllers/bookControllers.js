@@ -77,10 +77,17 @@ exports.createObject = (req, res) => {
             if (err) return res.status(500).send(err.message);
           }
         );
+        db.query(
+          `UPDATE members SET count_books = count_books + 1 WHERE id_member = ?`,
+          [data.id_member],
+          (err) => {
+            if (err) return res.status(500).send(err.message);
+          }
+        );
       }
       if (typeOb == "consignor") {
         db.query(
-          `UPDATE members SET count = count + 1 WHERE id_member = ?`,
+          `UPDATE members SET count_consignors = count_consignors + 1 WHERE id_member = ?`,
           [data.id_member],
           (err) => {
             if (err) return res.status(500).send(err.message);
