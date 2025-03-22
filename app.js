@@ -9,7 +9,6 @@ app.use(cors());
 // Import routes
 const bookRoutes = require("./routes/bookRoutes");
 
-// Use routes (important: "/api/books")
 app.use("/api", bookRoutes);
 
 module.exports = app;
