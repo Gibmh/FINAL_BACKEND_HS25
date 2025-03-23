@@ -210,20 +210,6 @@ exports.deleteObject = (req, res) => {
 
         db.query("DELETE FROM products WHERE id_product = ?", [id], (err) => {
           if (err) return res.status(500).json({ error: err.message });
-
-          db.query(
-            "UPDATE consignors SET count = count - 1 WHERE id_consignor = ?",
-            [id_consignor],
-            (err) => {
-              if (err) return res.status(500).json({ error: err.message });
-
-              res.status(200).json({
-                success: true,
-                message:
-                  "Product deleted successfully and consignor count updated",
-              });
-            }
-          );
         });
       }
     );
@@ -295,53 +281,22 @@ exports.deleteObject = (req, res) => {
   }
 
   if (typeOb === "consignor") {
-    db.query(
-      "SELECT id_member FROM consignors WHERE id_consignor = ?",
-      [id],
-      (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    db.query("DELETE FROM products WHERE id_consignor = ?", [id], (err) => {
+      if (err) return res.status(500).json({ error: err.message });
 
-        if (results.length === 0) {
-          return res.status(404).json({ error: "Consignor not found" });
-        }
-
-        const id_member = results[0].id_member;
-
-        db.query("DELETE FROM products WHERE id_consignor = ?", [id], (err) => {
+      db.query(
+        "DELETE FROM consignors WHERE id_consignor = ?",
+        [id],
+        (err, results) => {
           if (err) return res.status(500).json({ error: err.message });
 
-          db.query(
-            "DELETE FROM consignors WHERE id_consignor = ?",
-            [id],
-            (err, results) => {
-              if (err) return res.status(500).json({ error: err.message });
-
-              if (results.affectedRows > 0) {
-                db.query(
-                  "UPDATE members SET count = count - 1 WHERE id_member = ?",
-                  [id_member],
-                  (err) => {
-                    if (err)
-                      return res.status(500).json({ error: err.message });
-
-                    res.status(200).json({
-                      success: true,
-                      message:
-                        "Consignor deleted successfully and member count updated",
-                    });
-                  }
-                );
-              } else {
-                res.status(200).json({
-                  success: true,
-                  message: "No consignor found with the given ID",
-                });
-              }
-            }
-          );
-        });
-      }
-    );
+          res.status(200).json({
+            success: true,
+            message: "Consignor and related products deleted successfully",
+          });
+        }
+      );
+    });
     return;
   }
 
