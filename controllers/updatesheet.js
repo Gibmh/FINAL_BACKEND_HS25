@@ -271,3 +271,28 @@ exports.ConsignorSheet = async () => {
     console.error("❌ LỖI:", error.message);
   }
 };
+
+exports.log = async (log, id = "") => {
+  const format = "HH:mm DD/MM/YYYY";
+  let formatedDate = moment(new Date()).format(format);
+  let message = {
+    Time: "Thực hiện lúc " + formatedDate,
+    Action: log,
+    Member_ID: "'" + id,
+  };
+  console.log("📡");
+  // 🔹 Kết nối Google Sheets
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+
+  const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID, auth);
+  await doc.loadInfo(); //Người có kpi
+  await doc.sheetsByIndex[3].setHeaderRow(Object.keys(message));
+  await doc.sheetsByIndex[3].addRows([message]);
+  console.log(`✅ Đã ghi lại hoạt động vào Google Sheets!`);
+};

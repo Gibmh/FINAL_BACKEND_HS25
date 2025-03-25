@@ -1,6 +1,6 @@
 const db = require("../models/db");
-
-exports.createObject = (req, res) => {
+const { log } = require("../controllers/updatesheet");
+exports.createObject = async (req, res) => {
   const { typeOb, data } = req.body;
   console.log(req.body);
   if (!typeOb || !data) {
@@ -79,12 +79,16 @@ exports.createObject = (req, res) => {
           message: "Create success!",
           id: results.insertId,
         });
+        log(
+          "INSERT INTO " + tableName + " SET ?" + "-> Hành động create-object",
+          "id_member:" + data.id_member
+        );
       });
     }
   );
 };
 
-exports.readAllObjects = (req, res) => {
+exports.readAllObjects = async (req, res) => {
   const { typeOb } = req.query;
   if (!typeOb) return res.status(400).json({ message: "Missing typeOb" });
 
@@ -117,7 +121,7 @@ exports.readAllObjects = (req, res) => {
   });
 };
 
-exports.readObjectById = (req, res) => {
+exports.readObjectById = async (req, res) => {
   const { typeUser, typeOb, id } = req.query;
   console.log(
     "Request Params - typeOb:",
@@ -153,7 +157,7 @@ exports.readObjectById = (req, res) => {
   });
 };
 
-exports.updateObject = (req, res) => {
+exports.updateObject = async (req, res) => {
   const { typeOb, id, data } = req.body;
   console.log(req.body);
   if (!typeOb || !id || !data)
@@ -184,6 +188,15 @@ exports.updateObject = (req, res) => {
     if (err) return res.status(500).send(err.message);
     console.log("Update Results:", results);
     res.status(200).json({ success: true, message: "Updated successfully" });
+    log(
+      query +
+        "-> Hành động update-object với id_" +
+        typeOb +
+        ":" +
+        id +
+        " bộ update:",
+      jsonStringify(data)
+    );
   });
 };
 
@@ -210,9 +223,15 @@ exports.deleteObject = (req, res) => {
 
         db.query("DELETE FROM products WHERE id_product = ?", [id], (err) => {
           if (err) return res.status(500).json({ error: err.message });
+          res.status(200).json({
+            success: true,
+            message: "Product deleted successfully",
+          });
+          log("Đã xóa product-> Hành động delete-object với id_product:" + id);
         });
       }
     );
+
     return;
   }
 
@@ -259,6 +278,10 @@ exports.deleteObject = (req, res) => {
                         message:
                           "Member deleted successfully along with related consignors and products",
                       });
+                      log(
+                        "Đã xóa member-> Hành động delete-object với id_member:" +
+                          id
+                      );
                     }
                   );
                 }
@@ -273,6 +296,7 @@ exports.deleteObject = (req, res) => {
               success: true,
               message: "Member deleted successfully",
             });
+            log("Đã xóa member-> Hành động delete-object với id_member:" + id);
           });
         }
       }
@@ -294,6 +318,9 @@ exports.deleteObject = (req, res) => {
             success: true,
             message: "Consignor and related products deleted successfully",
           });
+          log(
+            "Đã xóa consignor-> Hành động delete-object với id_consignor:" + id
+          );
         }
       );
     });
@@ -302,7 +329,8 @@ exports.deleteObject = (req, res) => {
 
   res.status(400).json({ error: "Invalid typeOb" });
 };
-exports.searchObject = (req, res) => {
+
+exports.searchObject = async (req, res) => {
   const { typeOb, query, id_member } = req.query;
   console.log(
     "Search Params - typeOb:",
@@ -349,7 +377,7 @@ exports.searchObject = (req, res) => {
   });
 };
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   const { id_member, password } = req.body;
   if (!id_member || !password)
     return res.status(400).json({ message: "Missing id_member or password" });
@@ -367,6 +395,7 @@ exports.login = (req, res) => {
         .status(200)
         .json({ success: false, message: "Invalid id_member or password" });
     res.status(200).json({ success: true, data: results });
+    log("Dang nhap thanh cong " + id_member);
   });
 };
 
