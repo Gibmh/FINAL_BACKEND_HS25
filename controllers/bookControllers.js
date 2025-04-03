@@ -1,8 +1,121 @@
 const db = require("../models/db");
 const { log } = require("../controllers/updatesheet");
+
+// exports.createObject = async (req, res) => {
+//   const { typeOb, data } = req.body;
+//   console.log(req.body);
+//   if (!typeOb || !data) {
+//     return res.status(400).json({ message: "Missing typeOb or data" });
+//   }
+
+//   const tableConfig = {
+//     product: {
+//       tableName: "products",
+//       idField: "id_product",
+//       needCheckID: true,
+//     },
+//     order: { tableName: "receipts", idField: "id_receipt", needCheckID: false },
+//     member: { tableName: "members", idField: "id_member", needCheckID: true },
+//     consignor: {
+//       tableName: "consignors",
+//       idField: "id_consignor",
+//       needCheckID: true,
+//     },
+//   };
+
+//   const config = tableConfig[typeOb];
+//   if (!config) {
+//     return res.status(400).json({ message: "Invalid typeOb" });
+//   }
+
+//   const { tableName, idField, needCheckID } = config;
+
+//   if (needCheckID && !data[idField]) {
+//     return res.status(400).json({ message: `Missing ${idField}` });
+//   }
+
+//   if (!needCheckID) {
+//     //
+//     // db.query(
+//     //   "SELECT name FROM members WHERE id_member = ?",
+//     //   [data.id_member],
+//     //   (err, results) => {
+//     //     if (err) return res.status(500).send(err.message);
+//     //     if (results.length === 0) {
+//     //       return res.status(404).send("Không tìm thấy thành viên.");
+//     //     }
+//     //     const data_receipt = {
+//     //       id_receipt: data.id_receipt,
+//     //       id_member: data.id_member,
+//     //       name_cashier: results[0].name,
+//     //       payment_method: data.payment_method,
+//     //     };
+//     //     // Thêm vào receipts trước
+//     //     db.query(
+//     //       `INSERT INTO ${tableName} SET ?`,
+//     //       data_receipt,
+//     //       (err, receiptResult) => {
+//     //         if (err) return res.status(500).send(err.message);
+//     //         const newReceiptID = data.id_receipt;
+//     //         const data_order = {
+//     //           id_receipt: newReceiptID,
+//     //           id_product: data.id_product,
+//     //           quantity: data.quantity,
+//     //         };
+//     //         db.query(
+//     //           `INSERT INTO orders SET ?`,
+//     //           data_order,
+//     //           (err, orderResult) => {
+//     //             if (err) return res.status(500).send(err.message);
+//     //             return res.status(201).json({
+//     //               success: true,
+//     //               message: "Create success!",
+//     //               receipt_id: newReceiptID,
+//     //             });
+//     //           }
+//     //         );
+//     //       }
+//     //     );
+//     //   }
+//     // );
+//   }
+
+//   db.query(
+//     `SELECT COUNT(*) AS count FROM ${tableName} WHERE ${idField} = ?`,
+//     [data[idField]],
+//     (err, results) => {
+//       if (err) return res.status(500).send(err.message);
+
+//       if (results[0].count > 0) {
+//         return res
+//           .status(200)
+//           .json({ success: false, message: `${idField} already exists` });
+//       }
+
+//       if (typeOb == "product") {
+//         data.stock = data.quantity;
+//       }
+
+//       db.query(`INSERT INTO ${tableName} SET ?`, [data], (err, results) => {
+//         if (err) return res.status(500).send(err.message);
+//         res.status(201).json({
+//           success: true,
+//           message: "Create success!",
+//           id: results.insertId,
+//         });
+//         log(
+//           "-> Member thêm " + typeOb + "tên :" + data.name,
+//           "id_member: " + data.id_member
+//         );
+//       });
+//     }
+//   );
+// };
+
 exports.createObject = async (req, res) => {
   const { typeOb, data } = req.body;
   console.log(req.body);
+
   if (!typeOb || !data) {
     return res.status(400).json({ message: "Missing typeOb or data" });
   }
@@ -13,7 +126,7 @@ exports.createObject = async (req, res) => {
       idField: "id_product",
       needCheckID: true,
     },
-    order: { tableName: "orders", idField: "id_order", needCheckID: false },
+    order: { tableName: "receipts", idField: "id_receipt", needCheckID: false },
     member: { tableName: "members", idField: "id_member", needCheckID: true },
     consignor: {
       tableName: "consignors",
@@ -33,61 +146,94 @@ exports.createObject = async (req, res) => {
     return res.status(400).json({ message: `Missing ${idField}` });
   }
 
-  if (!needCheckID) {
-    db.query(`INSERT INTO ${tableName} SET ?`, [data], (err, results) => {
-      if (err) return res.status(500).send(err.message);
+  try {
+    if (!needCheckID) {
+      // Xử lý dữ liệu hóa đơn
+      const receiptData = data.receipt;
+      const orderDataList = data.order;
 
-      if (data.cash_back && data.id_consignor) {
-        db.query(
-          `UPDATE consignors SET cash_back = cash_back + ? WHERE id_consignor = ?`,
-          [data.cash_back, data.id_consignor],
-          (err) => {
-            if (err) return res.status(500).send(err.message);
-          }
-        );
+      console.log("Receipt Data:", receiptData);
+      console.log("Order Data List:", orderDataList);
+
+      // Lấy tên thu ngân từ bảng `members`
+      const [results] = await db
+        .promise()
+        .query("SELECT name FROM members WHERE id_member = ?", [
+          receiptData.id_member,
+        ]);
+
+      if (results.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Không tìm thấy thành viên." });
       }
+
+      // Tạo dữ liệu hóa đơn
+      const newReceipt = {
+        id_receipt: receiptData.id_receipt,
+        id_member: receiptData.id_member,
+        name_cashier: results[0].name,
+        payment_method: receiptData.method_payment,
+        voucher: !receiptData.voucher ? 0 : receiptData.voucher,
+      };
+
+      // Chèn hóa đơn vào bảng `receipts`
+      await db.promise().query("INSERT INTO receipts SET ?", newReceipt);
+
+      // Chèn tất cả đơn hàng vào bảng `orders`
+      await Promise.all(
+        orderDataList.map((order) => {
+          const newOrder = {
+            id_receipt: order.id_receipt,
+            id_product: order.id_product,
+            quantity: order.quantity,
+            price: order.price,
+          };
+          return db.promise().query("INSERT INTO orders SET ?", newOrder);
+        })
+      );
 
       return res.status(201).json({
         success: true,
         message: "Create success!",
-        id: results.insertId,
-      });
-    });
-    return;
-  }
-
-  db.query(
-    `SELECT COUNT(*) AS count FROM ${tableName} WHERE ${idField} = ?`,
-    [data[idField]],
-    (err, results) => {
-      if (err) return res.status(500).send(err.message);
-
-      if (results[0].count > 0) {
-        return res
-          .status(200)
-          .json({ success: false, message: `${idField} already exists` });
-      }
-
-      if (typeOb == "product") {
-        data.stock = data.quantity;
-      }
-
-      db.query(`INSERT INTO ${tableName} SET ?`, [data], (err, results) => {
-        if (err) return res.status(500).send(err.message);
-        res.status(201).json({
-          success: true,
-          message: "Create success!",
-          id: results.insertId,
-        });
-        log(
-          "INSERT INTO " + tableName + " SET ?" + "-> Hành động create-object",
-          "id_member:" + data.id_member
-        );
+        receipt_id: receiptData.id_receipt,
       });
     }
-  );
-};
 
+    // Kiểm tra ID đã tồn tại chưa
+    const [checkResults] = await db
+      .promise()
+      .query(
+        `SELECT COUNT(*) AS count FROM ${tableName} WHERE ${idField} = ?`,
+        [data[idField]]
+      );
+
+    if (checkResults[0].count > 0) {
+      return res
+        .status(200)
+        .json({ success: false, message: `${idField} already exists` });
+    }
+
+    // Xử lý riêng sản phẩm (set stock = quantity)
+    if (typeOb === "product") {
+      data.stock = data.quantity;
+    }
+
+    // Chèn dữ liệu vào bảng
+    const [insertResults] = await db
+      .promise()
+      .query(`INSERT INTO ${tableName} SET ?`, [data]);
+
+    res.status(201).json({
+      success: true,
+      message: "Create success!",
+      id: insertResults.insertId,
+    });
+  } catch (error) {
+    console.error("Lỗi:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 exports.readAllObjects = async (req, res) => {
   const { typeOb } = req.query;
   if (!typeOb) return res.status(400).json({ message: "Missing typeOb" });
@@ -98,7 +244,7 @@ exports.readAllObjects = async (req, res) => {
       query = "SELECT * FROM products";
       break;
     case "order":
-      query = "SELECT * FROM orders";
+      query = "SELECT * FROM receipts";
       break;
     case "member":
       query = "SELECT * FROM members";
@@ -163,19 +309,23 @@ exports.updateObject = async (req, res) => {
   if (!typeOb || !id || !data)
     return res.status(400).json({ message: "Missing typeOb, ID or data" });
 
-  let query;
+  let query, previousData;
   switch (typeOb) {
     case "product":
       query = "UPDATE products SET ? WHERE id_product = ?";
+      previousData = "SELECT * FROM products WHERE id_product = ?";
       break;
     case "order":
       query = "UPDATE orders SET ? WHERE id_bill = ?";
+      previousData = "SELECT * FROM orders WHERE id_bill = ?";
       break;
     case "member":
       query = "UPDATE members SET ? WHERE id_member = ?";
+      previousData = "SELECT * FROM members WHERE id_member = ?";
       break;
     case "consignor":
       query = "UPDATE consignors SET ? WHERE id_consignor = ?";
+      previousData = "SELECT * FROM consignors WHERE id_consignor = ?";
       break;
     default:
       return res.status(400).json({ message: "Invalid typeOb" });
@@ -183,20 +333,35 @@ exports.updateObject = async (req, res) => {
 
   console.log("SQL Query:", query);
   console.log("Data to Update:", data);
-
-  db.query(query, [data, id], (err, results) => {
+  db.query(previousData, [id], (err, re) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Update Results:", results);
-    res.status(200).json({ success: true, message: "Updated successfully" });
-    log(
-      query +
-        "-> Hành động update-object với id_" +
-        typeOb +
-        ":" +
-        id +
-        " bộ update:",
-      jsonStringify(data)
-    );
+    console.log("Previous data:", re);
+    db.query(query, [data, id], (err, results) => {
+      if (err) return res.status(500).send(err.message);
+      console.log("Update Results:", results);
+      res.status(200).json({ success: true, message: "Updated successfully" });
+      if (!data.validate)
+        log(
+          "-> Cập nhân thông tin của " +
+            typeOb +
+            " với id: " +
+            typeOb +
+            ": " +
+            id +
+            "\nTừ : " +
+            JSON.stringify(re[0] || {}) +
+            "\n Thành: " +
+            JSON.stringify(data || {})
+        );
+      else
+        log(
+          "-> Sách có id: " +
+            id +
+            " đã được xác thực bởi BTC có id: " +
+            data.id_validate,
+          "id_member: " + data.id_validate
+        );
+    });
   });
 };
 
@@ -227,7 +392,7 @@ exports.deleteObject = (req, res) => {
             success: true,
             message: "Product deleted successfully",
           });
-          log("Đã xóa product-> Hành động delete-object với id_product:" + id);
+          log("-> Đã xóa product với id_product:" + id);
         });
       }
     );
@@ -236,12 +401,16 @@ exports.deleteObject = (req, res) => {
   }
 
   if (typeOb === "order") {
-    db.query("DELETE FROM orders WHERE id_bill = ?", [id], (err, results) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res
-        .status(200)
-        .json({ success: true, message: "Order deleted successfully" });
-    });
+    db.query(
+      "DELETE FROM receipts WHERE id_receipt = ?",
+      [id],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res
+          .status(200)
+          .json({ success: true, message: "Order deleted successfully" });
+      }
+    );
     return;
   }
 
@@ -278,10 +447,7 @@ exports.deleteObject = (req, res) => {
                         message:
                           "Member deleted successfully along with related consignors and products",
                       });
-                      log(
-                        "Đã xóa member-> Hành động delete-object với id_member:" +
-                          id
-                      );
+                      log("-> Đã xóa member với id_member:" + id);
                     }
                   );
                 }
@@ -296,7 +462,7 @@ exports.deleteObject = (req, res) => {
               success: true,
               message: "Member deleted successfully",
             });
-            log("Đã xóa member-> Hành động delete-object với id_member:" + id);
+            log("-> Đã xóa member với id_member:" + id);
           });
         }
       }
@@ -318,9 +484,7 @@ exports.deleteObject = (req, res) => {
             success: true,
             message: "Consignor and related products deleted successfully",
           });
-          log(
-            "Đã xóa consignor-> Hành động delete-object với id_consignor:" + id
-          );
+          log("-> Đã xóa consignor với id_consignor:" + id);
         }
       );
     });
@@ -395,7 +559,11 @@ exports.login = async (req, res) => {
         .status(200)
         .json({ success: false, message: "Invalid id_member or password" });
     res.status(200).json({ success: true, data: results });
-    log("Dang nhap thanh cong " + id_member);
+    log(
+      "Đăng nhập thành công " + results[0].role + " tên " + results[0].name,
+      "id_member" + id_member,
+      "id_member: " + id_member
+    );
   });
 };
 
