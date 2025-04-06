@@ -215,6 +215,34 @@ exports.ConsignorSheet = async () => {
                 " không có sách.",
               Update_Date: "Cập nhật lúc" + formatedDate,
             });
+          } else if (totalDonated + totalConsigned < 50) {
+            blacklist.push({
+              Member_ID: "'" + member.id_member,
+              Member_Name: member.name,
+              Role: member.role,
+              Reason:
+                "Chưa đạt KPI. Số sách hiện tại " +
+                (totalDonated + totalConsigned) +
+                " cuốn.",
+              Update_Date: "Cập nhật lúc" + formatedDate,
+            });
+            detailedData.push({
+              Consignor_ID: "'" + consignor.id_consignor,
+              Consignor_Name: consignor.name,
+              Bank_ID: "'" + consignor.id_bank,
+              Bank_Name: consignor.bank_name,
+              Holder_Name: consignor.holder_name,
+              Consignor_Address: consignor.address,
+              Total_Consigned: totalConsigned,
+              Total_Donated: totalDonated,
+              Total_Product: total,
+              Total_Revenue: totalrevenue,
+              Cashback: getTotalPayment,
+              Member_ID: "'" + member.id_member,
+              Member_Name: member.name,
+              Role: member.role,
+              Date: "Cập nhật lúc" + formatedDate,
+            });
           } else {
             detailedData.push({
               Consignor_ID: "'" + consignor.id_consignor,

@@ -1,7 +1,6 @@
 const db = require("../models/db");
 const { log } = require("../controllers/updatesheet");
 
-
 exports.createObject = async (req, res) => {
   const { typeOb, data } = req.body;
   console.log(req.body);
@@ -82,11 +81,21 @@ exports.createObject = async (req, res) => {
           return db.promise().query("INSERT INTO orders SET ?", newOrder);
         })
       );
-
+      const receipt_after_insert = await db
+        .promise()
+        .query("SELECT * FROM receipts WHERE id_receipt = ?", [
+          receiptData.id_receipt,
+        ]);
+      const orders_after_insert = await db
+        .promise()
+        .query("SELECT * FROM orders WHERE id_receipt = ?", [
+          receiptData.id_receipt,
+        ]);
       return res.status(201).json({
         success: true,
         message: "Create success!",
-        receipt_id: receiptData.id_receipt,
+        receipt: receipt_after_insert[0],
+        orders: orders_after_insert,
       });
     }
 
@@ -119,6 +128,10 @@ exports.createObject = async (req, res) => {
       message: "Create success!",
       id: insertResults.insertId,
     });
+    log(
+      "-> Member thêm " + typeOb + " tên :" + data.name,
+      "id_member: " + data.id_member
+    );
   } catch (error) {
     console.error("Lỗi:", error.message);
     res.status(500).json({ success: false, message: error.message });
@@ -194,7 +207,7 @@ exports.readObjectById = async (req, res) => {
 };
 
 exports.updateObject = async (req, res) => {
-  const { typeOb, id, data } = req.body;
+  const { typeOb, id, data, id_member } = req.body;
   console.log(req.body);
   if (!typeOb || !id || !data)
     return res.status(400).json({ message: "Missing typeOb, ID or data" });
@@ -241,7 +254,8 @@ exports.updateObject = async (req, res) => {
             "\nTừ : " +
             JSON.stringify(re[0] || {}) +
             "\n Thành: " +
-            JSON.stringify(data || {})
+            JSON.stringify(data || {}),
+          "id_member: " + id_member
         );
       else
         log(
@@ -256,9 +270,11 @@ exports.updateObject = async (req, res) => {
 };
 
 exports.deleteObject = (req, res) => {
-  const { typeOb, id } = req.query;
-  if (!typeOb || !id) {
-    return res.status(400).json({ message: "Missing typeOb or ID" });
+  const { typeOb, id, id_member } = req.query;
+  if (!typeOb || !id || !id_member) {
+    return res
+      .status(400)
+      .json({ message: "Missing typeOb or id or id_member" });
   }
 
   console.log("Request Params - typeOb:", typeOb, "ID:", id);
@@ -282,7 +298,10 @@ exports.deleteObject = (req, res) => {
             success: true,
             message: "Product deleted successfully",
           });
-          log("-> Đã xóa product với id_product:" + id);
+          log(
+            "-> Đã xóa product với id_product:" + id,
+            "id_member: " + id_member
+          );
         });
       }
     );
@@ -337,7 +356,10 @@ exports.deleteObject = (req, res) => {
                         message:
                           "Member deleted successfully along with related consignors and products",
                       });
-                      log("-> Đã xóa member với id_member:" + id);
+                      log(
+                        "-> Đã xóa member với id_member:" + id,
+                        "id_member: " + id_member
+                      );
                     }
                   );
                 }
@@ -352,7 +374,10 @@ exports.deleteObject = (req, res) => {
               success: true,
               message: "Member deleted successfully",
             });
-            log("-> Đã xóa member với id_member:" + id);
+            log(
+              "-> Đã xóa member với id_member:" + id,
+              "id_member: " + id_member
+            );
           });
         }
       }
@@ -374,7 +399,10 @@ exports.deleteObject = (req, res) => {
             success: true,
             message: "Consignor and related products deleted successfully",
           });
-          log("-> Đã xóa consignor với id_consignor:" + id);
+          log(
+            "-> Đã xóa consignor với id_consignor:" + id,
+            "id_member: " + id_member
+          );
         }
       );
     });
@@ -451,7 +479,6 @@ exports.login = async (req, res) => {
     res.status(200).json({ success: true, data: results });
     log(
       "Đăng nhập thành công " + results[0].role + " tên " + results[0].name,
-      "id_member" + id_member,
       "id_member: " + id_member
     );
   });
