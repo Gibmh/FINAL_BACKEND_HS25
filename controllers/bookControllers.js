@@ -1,6 +1,16 @@
 const db = require("../models/db");
 const { log } = require("../controllers/updatesheet");
 
+function getChangedFields(before = {}, after = {}) {
+  const changes = [];
+  for (const key in after) {
+    if (after[key] !== before[key]) {
+      changes.push(`${key}: '${before[key]}' → '${after[key]}'`);
+    }
+  }
+  return changes;
+}
+
 exports.createObject = async (req, res) => {
   const { typeOb, data } = req.body;
   console.log(req.body);
@@ -231,65 +241,143 @@ exports.readObjectById = async (req, res) => {
   });
 };
 
+// exports.updateObject = async (req, res) => {
+//   const { typeOb, id, data, id_member } = req.body;
+//   console.log(req.body);
+//   if (!typeOb || !id || !data)
+//     return res.status(400).json({ message: "Missing typeOb, ID or data" });
+
+//   let query, previousData;
+//   switch (typeOb) {
+//     case "product":
+//       query = "UPDATE products SET ? WHERE id_product = ?";
+//       previousData = "SELECT * FROM products WHERE id_product = ?";
+//       break;
+//     case "order":
+//       query = "UPDATE orders SET ? WHERE id_bill = ?";
+//       previousData = "SELECT * FROM orders WHERE id_bill = ?";
+//       break;
+//     case "member":
+//       query = "UPDATE members SET ? WHERE id_member = ?";
+//       previousData = "SELECT * FROM members WHERE id_member = ?";
+//       break;
+//     case "consignor":
+//       query = "UPDATE consignors SET ? WHERE id_consignor = ?";
+//       previousData = "SELECT * FROM consignors WHERE id_consignor = ?";
+//       break;
+//     default:
+//       return res.status(400).json({ message: "Invalid typeOb" });
+//   }
+
+//   console.log("SQL Query:", query);
+//   console.log("Data to Update:", data);
+//   db.query(previousData, [id], (err, re) => {
+//     if (err) return res.status(500).send(err.message);
+//     console.log("Previous data:", re);
+//     db.query(query, [data, id], (err, results) => {
+//       if (err) return res.status(500).send(err.message);
+//       console.log("Update Results:", results);
+//       res.status(200).json({ success: true, message: "Updated successfully" });
+//       db.query(
+//         "SELECT * FROM " + typeOb + "s WHERE id_" + typeOb + " = ?",
+//         [id],
+//         (err, now) => {
+//           if (err) return res.status(500).send(err.message);
+//           let check = now[0] == re[0];
+//           if (!data.validate && !check)
+//             log(
+//               "-> Cập nhân thông tin của " +
+//                 typeOb +
+//                 " với id: " +
+//                 typeOb +
+//                 ": " +
+//                 id +
+//                 "\nTừ : " +
+//                 JSON.stringify(re[0] || {}) +
+//                 "\n Thành: " +
+//                 JSON.stringify(data || {}),
+//               "id_member: " + id_member
+//             );
+//           else if (data.validate)
+//             log(
+//               "-> Sách có id: " +
+//                 id +
+//                 " đã được xác thực bởi BTC có id: " +
+//                 data.id_validate,
+//               "id_member: " + data.id_validate
+//             );
+//         }
+//       );
+//     });
+//   });
+// };
 exports.updateObject = async (req, res) => {
   const { typeOb, id, data, id_member } = req.body;
-  console.log(req.body);
-  if (!typeOb || !id || !data)
-    return res.status(400).json({ message: "Missing typeOb, ID or data" });
 
-  let query, previousData;
+  if (!typeOb || !id || !data) {
+    return res.status(400).json({ message: "Missing typeOb, ID or data" });
+  }
+
+  let query, previousData, table, idField;
   switch (typeOb) {
     case "product":
-      query = "UPDATE products SET ? WHERE id_product = ?";
-      previousData = "SELECT * FROM products WHERE id_product = ?";
+      table = "products";
+      idField = "id_product";
       break;
     case "order":
-      query = "UPDATE orders SET ? WHERE id_bill = ?";
-      previousData = "SELECT * FROM orders WHERE id_bill = ?";
+      table = "orders";
+      idField = "id_bill";
       break;
     case "member":
-      query = "UPDATE members SET ? WHERE id_member = ?";
-      previousData = "SELECT * FROM members WHERE id_member = ?";
+      table = "members";
+      idField = "id_member";
       break;
     case "consignor":
-      query = "UPDATE consignors SET ? WHERE id_consignor = ?";
-      previousData = "SELECT * FROM consignors WHERE id_consignor = ?";
+      table = "consignors";
+      idField = "id_consignor";
       break;
     default:
       return res.status(400).json({ message: "Invalid typeOb" });
   }
 
-  console.log("SQL Query:", query);
-  console.log("Data to Update:", data);
+  query = `UPDATE ${table} SET ? WHERE ${idField} = ?`;
+  previousData = `SELECT * FROM ${table} WHERE ${idField} = ?`;
+
   db.query(previousData, [id], (err, re) => {
     if (err) return res.status(500).send(err.message);
-    console.log("Previous data:", re);
+    const before = re[0];
+
     db.query(query, [data, id], (err, results) => {
       if (err) return res.status(500).send(err.message);
-      console.log("Update Results:", results);
-      res.status(200).json({ success: true, message: "Updated successfully" });
-      if (!data.validate)
-        log(
-          "-> Cập nhân thông tin của " +
-            typeOb +
-            " với id: " +
-            typeOb +
-            ": " +
-            id +
-            "\nTừ : " +
-            JSON.stringify(re[0] || {}) +
-            "\n Thành: " +
-            JSON.stringify(data || {}),
-          "id_member: " + id_member
-        );
-      else
-        log(
-          "-> Sách có id: " +
-            id +
-            " đã được xác thực bởi BTC có id: " +
-            data.id_validate,
-          "id_member: " + data.id_validate
-        );
+
+      db.query(
+        `SELECT * FROM ${table} WHERE ${idField} = ?`,
+        [id],
+        (err, now) => {
+          if (err) return res.status(500).send(err.message);
+          const after = now[0];
+
+          res
+            .status(200)
+            .json({ success: true, message: "Updated successfully" });
+
+          const changedFields = getChangedFields(before, after);
+
+          if (!data.validate && changedFields.length > 0) {
+            const message =
+              `→ Cập nhật ${typeOb} với id: ${id}\n` + changedFields.join("\n");
+            log(message, "id_member: " + id_member);
+          } else if (data.validate) {
+            log(
+              "-> Sách có id: " +
+                id +
+                " đã được xác thực bởi BTC có id: " +
+                data.id_validate,
+              "id_member: " + data.id_validate
+            );
+          }
+        }
+      );
     });
   });
 };
