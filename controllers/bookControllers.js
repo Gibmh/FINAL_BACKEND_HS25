@@ -37,66 +37,91 @@ exports.createObject = async (req, res) => {
 
   try {
     if (!needCheckID) {
-      // Xử lý dữ liệu hóa đơn
-      const receiptData = data.receipt;
-      const orderDataList = data.order;
-
-      console.log("Receipt Data:", receiptData);
-      console.log("Order Data List:", orderDataList);
-
-      // Lấy tên thu ngân từ bảng `members`
-      const [results] = await db
+      const check_receipt = await db
         .promise()
-        .query("SELECT name FROM members WHERE id_member = ?", [
-          receiptData.id_member,
-        ]);
-
-      if (results.length === 0) {
+        .query(
+          "SELECT COUNT(*) AS count FROM receipts WHERE id_receipt = ?",
+          data.receipt.id_receipt
+        );
+      if (check_receipt[0][0].count > 0) {
+        console.log("Receipt already exists");
         return res
-          .status(404)
-          .json({ success: false, message: "Không tìm thấy thành viên." });
+          .status(400)
+          .json({ success: false, message: "Receipt already exists" });
       }
+      // Xử lý dữ liệu hóa đơn
+      else {
+        const receiptData = data.receipt;
+        const orderDataList = data.order;
 
-      // Tạo dữ liệu hóa đơn
-      const newReceipt = {
-        id_receipt: receiptData.id_receipt,
-        id_member: receiptData.id_member,
-        name_cashier: results[0].name,
-        payment_method: receiptData.method_payment,
-        voucher: !receiptData.voucher ? 0 : receiptData.voucher,
-      };
+        console.log("Receipt Data:", receiptData);
+        console.log("Order Data List:", orderDataList);
 
-      // Chèn hóa đơn vào bảng `receipts`
-      await db.promise().query("INSERT INTO receipts SET ?", newReceipt);
+        // Lấy tên thu ngân từ bảng `members`
+        const [results] = await db
+          .promise()
+          .query("SELECT name FROM members WHERE id_member = ?", [
+            receiptData.id_member,
+          ]);
 
-      // Chèn tất cả đơn hàng vào bảng `orders`
-      await Promise.all(
-        orderDataList.map((order) => {
-          const newOrder = {
-            id_receipt: order.id_receipt,
-            id_product: order.id_product,
-            quantity: order.quantity,
-            price: order.price,
-          };
-          return db.promise().query("INSERT INTO orders SET ?", newOrder);
-        })
-      );
-      const receipt_after_insert = await db
-        .promise()
-        .query("SELECT * FROM receipts WHERE id_receipt = ?", [
-          receiptData.id_receipt,
-        ]);
-      const orders_after_insert = await db
-        .promise()
-        .query("SELECT * FROM orders WHERE id_receipt = ?", [
-          receiptData.id_receipt,
-        ]);
-      return res.status(201).json({
-        success: true,
-        message: "Create success!",
-        receipt: receipt_after_insert[0],
-        orders: orders_after_insert,
-      });
+        if (results.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Không tìm thấy thành viên." });
+        }
+
+        // Tạo dữ liệu hóa đơn
+        const newReceipt = {
+          id_receipt: receiptData.id_receipt,
+          id_member: receiptData.id_member,
+          name_cashier: results[0].name,
+          payment_method: receiptData.method_payment,
+          voucher: !receiptData.voucher ? 0 : receiptData.voucher,
+        };
+
+        // Chèn hóa đơn vào bảng `receipts`
+        await db.promise().query("INSERT INTO receipts SET ?", newReceipt);
+
+        // Chèn tất cả đơn hàng vào bảng `orders`
+        await Promise.all(
+          orderDataList.map((order) => {
+            const newOrder = {
+              id_receipt: order.id_receipt,
+              id_product: order.id_product,
+              quantity: order.quantity,
+              price: order.price,
+            };
+            return db.promise().query("INSERT INTO orders SET ?", newOrder);
+          })
+        );
+        const receipt_after_insert = await db
+          .promise()
+          .query("SELECT * FROM receipts WHERE id_receipt = ?", [
+            receiptData.id_receipt,
+          ]);
+        const orders_after_insert = await db
+          .promise()
+          .query("SELECT * FROM orders WHERE id_receipt = ?", [
+            receiptData.id_receipt,
+          ]);
+        log(
+          "-> Thu ngân thêm hóa đơn." +
+            "Tổng đơn hàng có giá : " +
+            receipt_after_insert[0][0].total_amount -
+            receipt_after_insert[0][0].voucher,
+          "id_cachier: " + receiptData.id_member
+        );
+        receipt_after_insert[0][0].total_amount =
+          receipt_after_insert[0][0].total_amount -
+          receipt_after_insert[0][0].voucher;
+
+        return res.status(201).json({
+          success: true,
+          message: "Create success!",
+          receipt: receipt_after_insert[0],
+          orders: orders_after_insert,
+        });
+      }
     }
 
     // Kiểm tra ID đã tồn tại chưa
@@ -271,7 +296,7 @@ exports.updateObject = async (req, res) => {
 
 exports.deleteObject = (req, res) => {
   const { typeOb, id, id_member } = req.query;
-  if (!typeOb || !id || !id_member) {
+  if (!typeOb || !id) {
     return res
       .status(400)
       .json({ message: "Missing typeOb or id or id_member" });
@@ -510,9 +535,7 @@ exports.getdetails = (req, res) => {
     }
 
     if (results.length === 0) {
-      return res
-        .status(200)
-        .json({ success: false, message: "Data not found" });
+      return res.status(200).json({ success: false, data: {} });
     }
 
     res.status(200).json({ success: true, data: results[0] });
