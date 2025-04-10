@@ -4,7 +4,7 @@ const { log } = require("../controllers/updatesheet");
 function getChangedFields(before = {}, after = {}) {
   const changes = [];
   for (const key in after) {
-    if (after[key] !== before[key]) {
+    if (after[key] !== before[key] && key !== "createdAt") {
       changes.push(`${key}: '${before[key]}' → '${after[key]}'`);
     }
   }
@@ -47,91 +47,89 @@ exports.createObject = async (req, res) => {
 
   try {
     if (!needCheckID) {
-      const check_receipt = await db
+      const [check_receipt] = await db
         .promise()
-        .query(
-          "SELECT COUNT(*) AS count FROM receipts WHERE id_receipt = ?",
-          data.receipt.id_receipt
-        );
-      if (check_receipt[0][0].count > 0) {
+        .query("SELECT COUNT(*) AS count FROM receipts WHERE id_receipt = ?", [
+          data.receipt.id_receipt,
+        ]);
+
+      if (check_receipt[0].count > 0) {
         console.log("Receipt already exists");
         return res
           .status(400)
           .json({ success: false, message: "Receipt already exists" });
       }
-      // Xử lý dữ liệu hóa đơn
-      else {
-        const receiptData = data.receipt;
-        const orderDataList = data.order;
 
-        console.log("Receipt Data:", receiptData);
-        console.log("Order Data List:", orderDataList);
+      const receiptData = data.receipt;
+      const orderDataList = data.order;
 
-        // Lấy tên thu ngân từ bảng `members`
-        const [results] = await db
-          .promise()
-          .query("SELECT name FROM members WHERE id_member = ?", [
-            receiptData.id_member,
-          ]);
+      console.log("Receipt Data:", receiptData);
+      console.log("Order Data List:", orderDataList);
 
-        if (results.length === 0) {
-          return res
-            .status(404)
-            .json({ success: false, message: "Không tìm thấy thành viên." });
-        }
+      // Lấy tên thu ngân từ bảng members
+      const [memberResult] = await db
+        .promise()
+        .query("SELECT name FROM members WHERE id_member = ?", [
+          receiptData.id_member,
+        ]);
 
-        // Tạo dữ liệu hóa đơn
-        const newReceipt = {
-          id_receipt: receiptData.id_receipt,
-          id_member: receiptData.id_member,
-          name_cashier: results[0].name,
-          payment_method: receiptData.method_payment,
-          voucher: !receiptData.voucher ? 0 : receiptData.voucher,
-        };
-
-        // Chèn hóa đơn vào bảng `receipts`
-        await db.promise().query("INSERT INTO receipts SET ?", newReceipt);
-
-        // Chèn tất cả đơn hàng vào bảng `orders`
-        await Promise.all(
-          orderDataList.map((order) => {
-            const newOrder = {
-              id_receipt: order.id_receipt,
-              id_product: order.id_product,
-              quantity: order.quantity,
-              price: order.price,
-            };
-            return db.promise().query("INSERT INTO orders SET ?", newOrder);
-          })
-        );
-        const receipt_after_insert = await db
-          .promise()
-          .query("SELECT * FROM receipts WHERE id_receipt = ?", [
-            receiptData.id_receipt,
-          ]);
-        const orders_after_insert = await db
-          .promise()
-          .query("SELECT * FROM orders WHERE id_receipt = ?", [
-            receiptData.id_receipt,
-          ]);
-        log(
-          "-> Thu ngân thêm hóa đơn." +
-            "Tổng đơn hàng có giá : " +
-            receipt_after_insert[0][0].total_amount -
-            receipt_after_insert[0][0].voucher,
-          "id_cachier: " + receiptData.id_member
-        );
-        receipt_after_insert[0][0].total_amount =
-          receipt_after_insert[0][0].total_amount -
-          receipt_after_insert[0][0].voucher;
-
-        return res.status(201).json({
-          success: true,
-          message: "Create success!",
-          receipt: receipt_after_insert[0],
-          orders: orders_after_insert,
-        });
+      if (memberResult.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Không tìm thấy thành viên." });
       }
+
+      const newReceipt = {
+        id_receipt: receiptData.id_receipt,
+        id_member: receiptData.id_member,
+        name_cashier: memberResult[0].name,
+        payment_method: receiptData.method_payment,
+        voucher: receiptData.voucher || 0,
+      };
+
+      // Chèn hóa đơn
+      await db.promise().query("INSERT INTO receipts SET ?", newReceipt);
+
+      // Chèn đơn hàng
+      await Promise.all(
+        orderDataList.map((order) => {
+          const newOrder = {
+            id_receipt: order.id_receipt,
+            id_product: order.id_product,
+            quantity: order.quantity,
+            price: order.price,
+          };
+          return db.promise().query("INSERT INTO orders SET ?", newOrder);
+        })
+      );
+
+      // Lấy lại hóa đơn & đơn hàng sau khi insert
+      const [receiptResult] = await db
+        .promise()
+        .query("SELECT * FROM receipts WHERE id_receipt = ?", [
+          receiptData.id_receipt,
+        ]);
+      const [ordersResult] = await db
+        .promise()
+        .query("SELECT * FROM orders WHERE id_receipt = ?", [
+          receiptData.id_receipt,
+        ]);
+
+      // Tính lại tổng sau khi trừ voucher (nếu có)
+      const receipt = receiptResult[0];
+      receipt.total_amount = receipt.total_amount - receipt.voucher;
+
+      log(
+        `-> Thu ngân thêm hóa đơn. Tổng đơn hàng có giá: ${receipt.total_amount}`,
+        `id_cashier: ${receiptData.id_member}`
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: "Create success!",
+        receipt,
+        orders: ordersResult,
+      });
     }
 
     // Kiểm tra ID đã tồn tại chưa
@@ -173,36 +171,33 @@ exports.createObject = async (req, res) => {
   }
 };
 exports.readAllObjects = async (req, res) => {
-  const { typeOb } = req.query;
-  if (!typeOb) return res.status(400).json({ message: "Missing typeOb" });
+  try {
+    const { typeOb } = req.query;
+    if (!typeOb) return res.status(400).json({ message: "Missing typeOb" });
 
-  let query;
-  switch (typeOb) {
-    case "product":
-      query = "SELECT * FROM products";
-      break;
-    case "order":
-      query = "SELECT * FROM receipts";
-      break;
-    case "member":
-      query = "SELECT * FROM members";
-      break;
-    case "consignor":
-      query = "SELECT * FROM consignors";
-      break;
-    default:
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid typeOb" });
-  }
+    let query;
+    switch (typeOb) {
+      case "product":
+        query = "SELECT * FROM products";
+        break;
+      case "order":
+        query = "SELECT * FROM receipts";
+        break;
+      case "member":
+        query = "SELECT * FROM members";
+        break;
+      case "consignor":
+        query = "SELECT * FROM consignors";
+        break;
+      default:
+        return res.status(400).json({ message: "Invalid typeOb" });
+    }
 
-  console.log("SQL Query:", query);
-
-  db.query(query, (err, results) => {
-    if (err) return res.status(500).send(err.message);
-    console.log("Query Results:", results);
+    const [results] = await db.promise().query(query);
     res.status(200).json({ success: true, data: results });
-  });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
 };
 
 exports.readObjectById = async (req, res) => {
@@ -241,76 +236,6 @@ exports.readObjectById = async (req, res) => {
   });
 };
 
-// exports.updateObject = async (req, res) => {
-//   const { typeOb, id, data, id_member } = req.body;
-//   console.log(req.body);
-//   if (!typeOb || !id || !data)
-//     return res.status(400).json({ message: "Missing typeOb, ID or data" });
-
-//   let query, previousData;
-//   switch (typeOb) {
-//     case "product":
-//       query = "UPDATE products SET ? WHERE id_product = ?";
-//       previousData = "SELECT * FROM products WHERE id_product = ?";
-//       break;
-//     case "order":
-//       query = "UPDATE orders SET ? WHERE id_bill = ?";
-//       previousData = "SELECT * FROM orders WHERE id_bill = ?";
-//       break;
-//     case "member":
-//       query = "UPDATE members SET ? WHERE id_member = ?";
-//       previousData = "SELECT * FROM members WHERE id_member = ?";
-//       break;
-//     case "consignor":
-//       query = "UPDATE consignors SET ? WHERE id_consignor = ?";
-//       previousData = "SELECT * FROM consignors WHERE id_consignor = ?";
-//       break;
-//     default:
-//       return res.status(400).json({ message: "Invalid typeOb" });
-//   }
-
-//   console.log("SQL Query:", query);
-//   console.log("Data to Update:", data);
-//   db.query(previousData, [id], (err, re) => {
-//     if (err) return res.status(500).send(err.message);
-//     console.log("Previous data:", re);
-//     db.query(query, [data, id], (err, results) => {
-//       if (err) return res.status(500).send(err.message);
-//       console.log("Update Results:", results);
-//       res.status(200).json({ success: true, message: "Updated successfully" });
-//       db.query(
-//         "SELECT * FROM " + typeOb + "s WHERE id_" + typeOb + " = ?",
-//         [id],
-//         (err, now) => {
-//           if (err) return res.status(500).send(err.message);
-//           let check = now[0] == re[0];
-//           if (!data.validate && !check)
-//             log(
-//               "-> Cập nhân thông tin của " +
-//                 typeOb +
-//                 " với id: " +
-//                 typeOb +
-//                 ": " +
-//                 id +
-//                 "\nTừ : " +
-//                 JSON.stringify(re[0] || {}) +
-//                 "\n Thành: " +
-//                 JSON.stringify(data || {}),
-//               "id_member: " + id_member
-//             );
-//           else if (data.validate)
-//             log(
-//               "-> Sách có id: " +
-//                 id +
-//                 " đã được xác thực bởi BTC có id: " +
-//                 data.id_validate,
-//               "id_member: " + data.id_validate
-//             );
-//         }
-//       );
-//     });
-//   });
-// };
 exports.updateObject = async (req, res) => {
   const { typeOb, id, data, id_member } = req.body;
 
