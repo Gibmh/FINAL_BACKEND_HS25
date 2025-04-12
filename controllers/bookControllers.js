@@ -12,7 +12,7 @@ function getChangedFields(before = {}, after = {}) {
 }
 
 exports.createObject = async (req, res) => {
-  const { typeOb, data } = req.body;
+  const { typeOb, data, id_member } = req.body;
   console.log(req.body);
 
   if (!typeOb || !data) {
@@ -155,7 +155,6 @@ exports.createObject = async (req, res) => {
       });
     }
 
-    // Kiểm tra ID đã tồn tại chưa
     const [checkResults] = await db
       .promise()
       .query(
@@ -169,12 +168,10 @@ exports.createObject = async (req, res) => {
         .json({ success: false, message: `${idField} already exists` });
     }
 
-    // Xử lý riêng sản phẩm (set stock = quantity)
     if (typeOb === "product") {
       data.stock = data.quantity;
     }
 
-    // Chèn dữ liệu vào bảng
     const [insertResults] = await db
       .promise()
       .query(`INSERT INTO ${tableName} SET ?`, [data]);
@@ -186,7 +183,7 @@ exports.createObject = async (req, res) => {
     });
     log(
       "-> Member thêm " + typeOb + " tên :" + data.name,
-      "id_member: " + data.id_member
+      "id_member: " + id_member
     );
   } catch (error) {
     console.error("Lỗi:", error.message);
