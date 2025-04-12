@@ -25,7 +25,11 @@ exports.createObject = async (req, res) => {
       idField: "id_product",
       needCheckID: true,
     },
-    order: { tableName: "receipts", idField: "id_receipt", needCheckID: false },
+    receipt: {
+      tableName: "receipts",
+      idField: "id_receipt",
+      needCheckID: false,
+    },
     member: { tableName: "members", idField: "id_member", needCheckID: true },
     consignor: {
       tableName: "consignors",
@@ -47,20 +51,39 @@ exports.createObject = async (req, res) => {
 
   try {
     if (!needCheckID) {
-      const [check_receipt] = await db
+      // const [check_receipt] = await db
+      //   .promise()
+      //   .query("SELECT COUNT(*) AS count FROM receipts WHERE id_receipt = ?", [
+      //     data.receipt.id_receipt,
+      //   ]);
+
+      // if (check_receipt[0].count > 0) {
+      //   console.log("Receipt already exists");
+      //   return res
+      //     .status(400)
+      //     .json({ success: false, message: "Receipt already exists" });
+      // }
+      await db
         .promise()
-        .query("SELECT COUNT(*) AS count FROM receipts WHERE id_receipt = ?", [
-          data.receipt.id_receipt,
+        .query("INSERT INTO count_id_receipt (id_member) VALUES (?)", [
+          data.receipt.id_member,
         ]);
 
-      if (check_receipt[0].count > 0) {
-        console.log("Receipt already exists");
-        return res
-          .status(400)
-          .json({ success: false, message: "Receipt already exists" });
-      }
+      const [rows] = await db
+        .promise()
+        .query(
+          "SELECT id FROM count_id_receipt WHERE id_member = ? ORDER BY id DESC LIMIT 1",
+          [data.receipt.id_member]
+        );
+
+      const id_receipt = data.receipt.id_member + "_" + String(rows[0].id);
+      data.receipt.id_receipt = id_receipt;
 
       const receiptData = data.receipt;
+
+      for (let i = 0; i < data.order.length; i++) {
+        data.order[i].id_receipt = id_receipt;
+      }
       const orderDataList = data.order;
 
       console.log("Receipt Data:", receiptData);
@@ -127,7 +150,7 @@ exports.createObject = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: "Create success!",
-        receipt,
+        receipt: receiptResult,
         orders: ordersResult,
       });
     }
@@ -180,7 +203,7 @@ exports.readAllObjects = async (req, res) => {
       case "product":
         query = "SELECT * FROM products";
         break;
-      case "order":
+      case "receipt":
         query = "SELECT * FROM receipts";
         break;
       case "member":
@@ -217,16 +240,18 @@ exports.readObjectById = async (req, res) => {
       .json({ message: "Missing typeOb or ID or typeUser" });
   const validTables = {
     product: "id_product",
-    order: "id_bill",
+    receipt: "id_receipt",
     member: "id_member",
     consignor: "id_consignor",
   };
+  const tableConfig = {
+    product: "products",
+    receipt: "receipts",
+    member: "members",
+    consignor: "consignors",
+  };
 
-  if (!validTables[typeOb] || !validTables[typeUser]) {
-    return res.status(400).json({ message: "Invalid typeOb" });
-  }
-
-  const query = `SELECT * FROM ${typeOb}s WHERE ${validTables[typeUser]} = ?`;
+  const query = `SELECT * FROM ${tableConfig[typeOb]} WHERE ${validTables[typeUser]} = ?`;
   console.log("SQL Query:", query);
 
   db.query(query, [id], (err, results) => {
@@ -249,8 +274,8 @@ exports.updateObject = async (req, res) => {
       table = "products";
       idField = "id_product";
       break;
-    case "order":
-      table = "orders";
+    case "receipt":
+      table = "receipts";
       idField = "id_bill";
       break;
     case "member":
@@ -318,41 +343,27 @@ exports.deleteObject = (req, res) => {
   console.log("Request Params - typeOb:", typeOb, "ID:", id);
 
   if (typeOb === "product") {
-    db.query(
-      "SELECT id_consignor FROM products WHERE id_product = ?",
-      [id],
-      (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        if (results.length === 0) {
-          return res.status(404).json({ error: "Product not found" });
-        }
-
-        const id_consignor = results[0].id_consignor;
-
-        db.query("DELETE FROM products WHERE id_product = ?", [id], (err) => {
-          if (err) return res.status(500).json({ error: err.message });
-          res.status(200).json({
-            success: true,
-            message: "Product deleted successfully",
-          });
-          log(
-            "-> Đã xóa product với id_product:" + id,
-            "id_member: " + id_member
-          );
-        });
-      }
-    );
-
+    db.query("DELETE FROM products WHERE id_product = ?", [id], (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(200).json({
+        success: true,
+        message: "Product deleted successfully",
+      });
+      log("-> Đã xóa product với id_product:" + id, "id_member: " + id_member);
+    });
     return;
   }
 
-  if (typeOb === "order") {
+  if (typeOb === "receipt") {
     db.query(
       "DELETE FROM receipts WHERE id_receipt = ?",
       [id],
       (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
+        log(
+          "-> Đã xóa receipt với id_receipt:" + id,
+          "id_member: " + id_member
+        );
         res
           .status(200)
           .json({ success: true, message: "Order deleted successfully" });
