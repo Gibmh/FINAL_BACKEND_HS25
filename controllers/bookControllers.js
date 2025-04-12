@@ -543,7 +543,7 @@ exports.getdetails = (req, res) => {
       .json({ success: false, message: "Missing typeOb or id" });
   }
 
-  const validTables = ["member", "consignor", "product"];
+  const validTables = ["member", "consignor", "product", "receipt"];
 
   if (!validTables.includes(typeOb)) {
     return res.status(400).json({ success: false, message: "Invalid typeOb" });
