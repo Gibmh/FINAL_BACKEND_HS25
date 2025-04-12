@@ -533,7 +533,40 @@ exports.login = async (req, res) => {
   });
 };
 
-exports.getdetails = (req, res) => {
+// exports.getdetails = (req, res) => {
+//   console.log(req.query);
+//   const { typeOb, id } = req.query;
+
+//   if (!typeOb || !id) {
+//     return res
+//       .status(400)
+//       .json({ success: false, message: "Missing typeOb or id" });
+//   }
+
+//   const validTables = ["member", "consignor", "product", "receipt"];
+
+//   if (!validTables.includes(typeOb)) {
+//     return res.status(400).json({ success: false, message: "Invalid typeOb" });
+//   }
+//   if (typeOb === "receipt") {
+//   }
+//   const sql = `SELECT * FROM ${typeOb}s WHERE id_${typeOb} = ?`;
+
+//   console.log("SQL Query:", sql);
+
+//   db.query(sql, [id], (err, results) => {
+//     if (err) {
+//       return res.status(500).json({ success: false, message: err.message });
+//     }
+
+//     if (results.length === 0) {
+//       return res.status(200).json({ success: false, data: {} });
+//     }
+
+//     res.status(200).json({ success: true, data: results[0] });
+//   });
+// };
+exports.getdetails = async (req, res) => {
   console.log(req.query);
   const { typeOb, id } = req.query;
 
@@ -549,22 +582,59 @@ exports.getdetails = (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid typeOb" });
   }
 
-  const sql = `SELECT * FROM ${typeOb}s WHERE id_${typeOb} = ?`;
+  let responseData = {
+    receipt: null,
+    order: [],
+  };
 
-  console.log("SQL Query:", sql);
+  try {
+    if (typeOb !== "receipt") {
+      const sql = `SELECT * FROM ${typeOb}s WHERE id_${typeOb} = ?`;
 
-  db.query(sql, [id], (err, results) => {
-    if (err) {
-      return res.status(500).json({ success: false, message: err.message });
+      console.log("SQL Query:", sql);
+
+      const [results] = await db.promise().query(sql, [id]);
+
+      if (results.length === 0) {
+        return res.status(200).json({ success: false, data: {} });
+      }
+      return res.status(200).json({ success: true, data: results[0] });
+    } else {
+      const receiptQuery = `SELECT * FROM ${typeOb}s WHERE id_${typeOb} = ?`;
+      const orderQuery = `SELECT * FROM orders WHERE id_${typeOb} = ?`;
+
+      const [receiptResults] = await db.promise().query(receiptQuery, [id]);
+
+      if (receiptResults.length === 0) {
+        return res.status(200).json({ success: false, data: {} });
+      }
+
+      responseData.receipt = receiptResults[0];
+
+      const [orderResults] = await db.promise().query(orderQuery, [id]);
+
+      const productPromises = orderResults.map(async (order) => {
+        const [productResults] = await db
+          .promise()
+          .query(`SELECT * FROM products WHERE id_product = ?`, [
+            order.id_product,
+          ]);
+        return productResults[0];
+      });
+
+      responseData.orders = await Promise.all(productPromises);
+
+      res.status(200).json({
+        success: true,
+        receipt: responseData.receipt,
+        orders: responseData.orders,
+      });
     }
-
-    if (results.length === 0) {
-      return res.status(200).json({ success: false, data: {} });
-    }
-
-    res.status(200).json({ success: true, data: results[0] });
-  });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
 };
+
 exports.cronjob = (req, res) => {
   res.status(200).json({ success: true, message: "Cron job executed" });
 };
