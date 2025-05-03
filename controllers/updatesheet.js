@@ -71,7 +71,7 @@ exports.BookSheet = async () => {
             Member_ID: "'" + member.id_member,
             Member_Name: member.name,
             Member_Role: member.role,
-            Date: "Cập nhật lúc" + formatedDate,
+            Date: "Cập nhật lúc " + formatedDate,
           });
         }
       }
@@ -109,7 +109,7 @@ exports.BookSheet = async () => {
   }
 };
 
-exports.ConsignorSheet = async () => {
+exports.ConsignorSheet = async (res) => {
   const format = "HH:mm DD/MM/YYYY";
   let formatedDate = moment(new Date()).format(format);
 
@@ -154,6 +154,7 @@ exports.ConsignorSheet = async () => {
           Update_Date: "Cập nhật lúc" + formatedDate,
         });
       } else {
+        let totalProducts = 0;
         for (let consignor of consignors) {
           let total = await new Promise((resolve, reject) => {
             db.query(
@@ -215,34 +216,6 @@ exports.ConsignorSheet = async () => {
                 " không có sách.",
               Update_Date: "Cập nhật lúc" + formatedDate,
             });
-          } else if (totalDonated + totalConsigned < 50) {
-            blacklist.push({
-              Member_ID: "'" + member.id_member,
-              Member_Name: member.name,
-              Role: member.role,
-              Reason:
-                "Chưa đạt KPI. Số sách hiện tại " +
-                (totalDonated + totalConsigned) +
-                " cuốn.",
-              Update_Date: "Cập nhật lúc" + formatedDate,
-            });
-            detailedData.push({
-              Consignor_ID: "'" + consignor.id_consignor,
-              Consignor_Name: consignor.name,
-              Bank_ID: "'" + consignor.id_bank,
-              Bank_Name: consignor.bank_name,
-              Holder_Name: consignor.holder_name,
-              Consignor_Address: consignor.address,
-              Total_Consigned: totalConsigned,
-              Total_Donated: totalDonated,
-              Total_Product: total,
-              Total_Revenue: totalrevenue,
-              Cashback: getTotalPayment,
-              Member_ID: "'" + member.id_member,
-              Member_Name: member.name,
-              Role: member.role,
-              Date: "Cập nhật lúc" + formatedDate,
-            });
           } else {
             detailedData.push({
               Consignor_ID: "'" + consignor.id_consignor,
@@ -262,6 +235,17 @@ exports.ConsignorSheet = async () => {
               Date: "Cập nhật lúc" + formatedDate,
             });
           }
+          totalProducts += totalConsigned + totalDonated;
+        }
+        if (totalProducts < 50) {
+          blacklist.push({
+            Member_ID: "'" + member.id_member,
+            Member_Name: member.name,
+            Role: member.role,
+            Reason:
+              "Chưa đạt KPI. Số sách hiện tại " + totalProducts + " cuốn.",
+            Update_Date: "Cập nhật lúc" + formatedDate,
+          });
         }
       }
     }

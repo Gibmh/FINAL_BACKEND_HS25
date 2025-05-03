@@ -107,6 +107,7 @@ exports.createObject = async (req, res) => {
         id_member: receiptData.id_member,
         name_cashier: memberResult[0].name,
         payment_method: receiptData.method_payment,
+        total_amount: receiptData.total_amount,
         voucher: receiptData.voucher || 0,
       };
 
