@@ -14,7 +14,7 @@ const job = new CronJob(
   "0 0 * * 1", // cronTime
   function () {
     BookSheet();
-    ConsignorSheet();
+    ConsignorSheet(null, null);
     console.log("Cron job executed");
   }, // onTick
   null, // onComplete

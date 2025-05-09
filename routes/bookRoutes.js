@@ -13,6 +13,6 @@ router.post(String(process.env.API_LC), bookController.login);
 router.get(String(process.env.API_S), bookController.searchObject);
 router.get(String(process.env.API_GDO), bookController.getdetails);
 router.get(String(process.env.API_CronJob), bookController.cronjob);
-router.get(String(process.env.API_GGsheet), ConsignorSheet.ConsignorSheet);
+router.get(String(process.env.API_GGsheet), ConsignorSheet.list_kpi);
 
 module.exports = router;
