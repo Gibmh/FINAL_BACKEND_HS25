@@ -51,18 +51,21 @@ exports.createObject = async (req, res) => {
 
   try {
     if (!needCheckID) {
-      // const [check_receipt] = await db
-      //   .promise()
-      //   .query("SELECT COUNT(*) AS count FROM receipts WHERE id_receipt = ?", [
-      //     data.receipt.id_receipt,
-      //   ]);
+      for (let order of data.order) {
+        const [check_order] = await db
+          .promise()
+          .query("SELECT COUNT(*) AS count FROM orders WHERE id_receipt = ?", [
+            order.id_product,
+          ]);
 
-      // if (check_receipt[0].count > 0) {
-      //   console.log("Receipt already exists");
-      //   return res
-      //     .status(400)
-      //     .json({ success: false, message: "Receipt already exists" });
-      // }
+        if (check_order[0].count > 0) {
+          console.log("Order already exists");
+          return res
+            .status(400)
+            .json({ success: false, message: "Order already exists" });
+        }
+      }
+
       await db
         .promise()
         .query("INSERT INTO count_id_receipt (id_member) VALUES (?)", [
