@@ -1,7 +1,11 @@
 const app = require("./app");
 const dotenv = require("dotenv");
 const { CronJob } = require("cron");
-const { BookSheet, ConsignorSheet } = require("./controllers/updatesheet");
+const {
+  BookSheet,
+  ConsignorSheet,
+  list_kpi,
+} = require("./controllers/updatesheet");
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
@@ -14,7 +18,8 @@ const job = new CronJob(
   "0 0 * * 1", // cronTime
   function () {
     BookSheet();
-    ConsignorSheet(null, null);
+    ConsignorSheet();
+    list_kpi();
     console.log("Cron job executed");
   }, // onTick
   null, // onComplete

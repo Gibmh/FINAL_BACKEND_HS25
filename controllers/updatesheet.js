@@ -490,15 +490,14 @@ exports.log = async (log, id = "") => {
   console.log(`✅ Đã ghi lại hoạt động vào Google Sheets!`);
 };
 
-exports.list_kpi = async (req, res) => {
+exports.list_kpi = async () => {
   const format = "HH:mm DD/MM/YYYY";
   let formatedDate = moment(new Date()).format(format);
 
   console.log("📡 Đang truy vấn MySQL...");
+
   let detailedDataBTC = [];
-
   let detailedDataCTV = [];
-
   try {
     const members = await new Promise((resolve, reject) => {
       db.query("SELECT id_member, name, role FROM members", (err, rows) => {
@@ -577,11 +576,11 @@ exports.list_kpi = async (req, res) => {
     await doc.sheetsByIndex[5].addRows(detailedDataCTV);
 
     console.log(`✅ Đã ghi vào Google Sheets!`);
-    return res.status(200).json({
-      message: `Đã ghi  vào Google Sheets!`,
-    });
+    // return res.status(200).json({
+    //   message: `Đã ghi  vào Google Sheets!`,
+    // });
   } catch (error) {
     console.error("❌ LỖI:", error.message);
-    return res.status(500).json({ error: "Lỗi khi xử lý dữ liệu!" });
+    // return res.status(500).json({ error: "Lỗi khi xử lý dữ liệu!" });
   }
 };
