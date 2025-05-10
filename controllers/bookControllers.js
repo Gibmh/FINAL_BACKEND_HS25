@@ -54,15 +54,15 @@ exports.createObject = async (req, res) => {
       for (let order of data.order) {
         const [check_order] = await db
           .promise()
-          .query("SELECT COUNT(*) AS count FROM orders WHERE id_receipt = ?", [
+          .query("SELECT * FROM products WHERE id_product = ?", [
             order.id_product,
           ]);
 
-        if (check_order[0].count > 0) {
-          console.log("Order already exists");
+        if (check_order[0].stock - order.quantity < 0) {
+          console.log("Book unavailable");
           return res
             .status(400)
-            .json({ success: false, message: "Order already exists" });
+            .json({ success: false, message: "Book unavailable" });
         }
       }
 
