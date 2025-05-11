@@ -141,6 +141,14 @@ exports.createObject = async (req, res) => {
         .query("SELECT * FROM orders WHERE id_receipt = ?", [
           receiptData.id_receipt,
         ]);
+      for (let order of ordersResult) {
+        const [productResult] = await db
+          .promise()
+          .query("SELECT * FROM products WHERE id_product = ?", [
+            order.id_product,
+          ]);
+        order.name = productResult[0].name;
+      }
 
       const receipt = receiptResult[0];
       log(
