@@ -142,10 +142,7 @@ exports.createObject = async (req, res) => {
           receiptData.id_receipt,
         ]);
 
-      // Tính lại tổng sau khi trừ voucher (nếu có)
       const receipt = receiptResult[0];
-      receipt.total_amount = receipt.total_amount - receipt.voucher;
-
       log(
         `-> Thu ngân thêm hóa đơn. Tổng đơn hàng có giá: ${receipt.total_amount}`,
         `id_cashier: ${receiptData.id_member}`
@@ -154,7 +151,7 @@ exports.createObject = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: "Create success!",
-        receipt: receiptResult,
+        receipt: receipt,
         orders: ordersResult,
       });
     }
