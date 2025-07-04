@@ -11,4 +11,5 @@ package-lock.json
 =======
 node_modules/
 .env
+genUpdate.py/
 >>>>>>> 93bc2ce (code hiện tại 28/2/2025)

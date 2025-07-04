@@ -644,3 +644,82 @@ exports.getdetails = async (req, res) => {
 exports.cronjob = (req, res) => {
   res.status(200).json({ success: true, message: "Cron job executed" });
 };
+
+exports.getOrderList = async (req, res) => {
+  try {
+    const sql = `SELECT * FROM orders`;
+    const [results] = await db.promise().query(sql);
+    for (book of results) {
+      const [productResult] = await db
+        .promise()
+        .query("SELECT * FROM products WHERE id_product = ?", [
+          book.id_product,
+        ]);
+      book.name = productResult[0].name;
+      book.total = book.quantity * book.price;
+      book.classify = productResult[0].classify;
+    }
+    res.status(200).json({ success: true, data: results });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+exports.OrderStatisticsByCashier = async (req, res) => {
+  const { id_member } = req.query;
+  let KG = 0;
+  let QG = 0;
+  let TK = 0;
+
+  console.log("Request Params - id_member:", id_member);
+  if (!id_member) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing id_member" });
+  }
+
+  try {
+    const sql = `SELECT * FROM receipts WHERE id_member = ? `;
+    const [results] = await db.promise().query(sql, [id_member]);
+    //console.log("Results:", results);
+    for (receipt of results) {
+      const [orderResult] = await db
+        .promise()
+        .query("SELECT * FROM orders WHERE id_receipt = ?", [
+          receipt.id_receipt,
+        ]);
+      //console.log("Order Results:", orderResult);
+      for (book of orderResult) {
+        const bookdata = await db
+          .promise()
+          .query("SELECT * FROM products WHERE id_product = ?", [
+            book.id_product,
+          ]);
+        if (bookdata[0][0].classify === "Sách Ký Gửi") {
+          KG += book.quantity * book.price;
+        } else if (bookdata[0][0].classify === "Sách quyên góp") {
+          QG += book.quantity * book.price;
+        } else if (bookdata[0][0].classify === "Bán Kg") {
+          TK += book.quantity * book.price;
+        }
+        console.log(
+          "Book Data:",
+          bookdata[0][0].classify,
+          book.quantity,
+          book.price
+        );
+      }
+      // console.log("Receipt Data:", receipt);
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        id_member: id_member,
+        totalKG: KG,
+        totalQG: QG,
+        totalTK: TK,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
