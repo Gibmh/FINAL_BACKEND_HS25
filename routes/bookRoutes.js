@@ -19,5 +19,9 @@ router.get(
   String(process.env.API_ORDER_BY_CASHIER),
   bookController.OrderStatisticsByCashier
 );
-
+router.post(String(process.env.API_REGISTER), bookController.registerClient);
+// router.get(
+//   String(process.env.API_CHECK_REGISTER),
+//   bookController.checkRegister
+// );
 module.exports = router;

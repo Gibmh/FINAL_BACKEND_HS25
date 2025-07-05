@@ -723,3 +723,102 @@ exports.OrderStatisticsByCashier = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.registerClient = async (req, res) => {
+  const { attender_name, email, programs } = req.body;
+  let state = "old";
+  if (!attender_name || !email || !programs) {
+    return res.status(400).json({
+      message: "Missing attender_name, email or programs_id",
+    });
+  }
+  try {
+    const [checkrows] = await db
+      .promise()
+      .query("SELECT attender_id FROM attender WHERE email = ?", [email]);
+
+    let attender_id = checkrows[0]?.attender_id || null;
+
+    if (attender_id === null) {
+      console.log("New attender registration");
+      state = "new";
+      await db
+        .promise()
+        .query("INSERT INTO count_id_attender (req) VALUES (?)", [1]);
+      const [rows] = await db
+        .promise()
+        .query("SELECT id FROM count_id_attender ORDER BY id DESC LIMIT 1");
+
+      attender_id = "at_" + rows[0]?.id.toString();
+      await db
+        .promise()
+        .query(
+          "INSERT INTO attender (attender_id, attender_name, email) VALUES (?, ?, ?)",
+          [attender_id, attender_name, email]
+        );
+    } else {
+      console.log("Old attender registration");
+      await db
+        .promise()
+        .query("DELETE FROM attendance WHERE attender_id = ?", [attender_id]);
+    }
+    for (program of programs) {
+      await db
+        .promise()
+        .query(
+          "INSERT INTO attendance (attender_id, program_id) VALUES (?, ?)",
+          [attender_id, program.program_id]
+        );
+    }
+    return res.status(201).json({
+      success: true,
+      message: "Attender registered successfully",
+      attender_id: attender_id,
+      state: state,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// exports.checkRegister = async (req, res) => {
+//   const { email } = req.query;
+//   if (!email) {
+//     return res.status(400).json({ message: "Missing email" });
+//   }
+//   try {
+//     // Tìm thông tin người tham dự theo email
+//     const [attenderRows] = await db
+//       .promise()
+//       .query("SELECT * FROM attender WHERE email = ?", [email]);
+
+//     // Nếu đã tồn tại
+//     if (attenderRows.length > 0) {
+//       const attender = attenderRows[0];
+
+//       // Lấy danh sách chương trình người này đã đăng ký
+//       const [programs] = await db
+//         .promise()
+//         .query("SELECT * FROM attendance WHERE attender_id = ?", [
+//           attender.attender_id,
+//         ]);
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Attender already registered",
+//         data: {
+//           attender,
+//           programs,
+//         },
+//       });
+//     } else {
+//       // Chưa đăng ký
+//       return res.status(200).json({
+//         success: false,
+//         message: "Attender not registered",
+//       });
+//     }
+//   } catch (err) {
+//     return res.status(500).json({ success: false, message: err.message });
+//   }
+// };
