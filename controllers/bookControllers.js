@@ -665,55 +665,76 @@ exports.getOrderList = async (req, res) => {
   }
 };
 exports.OrderStatisticsByCashier = async (req, res) => {
-  const { id_member } = req.query;
+  //const { id_member } = req.query;
   let KG = 0;
   let QG = 0;
   let TK = 0;
 
-  console.log("Request Params - id_member:", id_member);
-  if (!id_member) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing id_member" });
-  }
-
   try {
-    const sql = `SELECT * FROM receipts WHERE id_member = ? `;
-    const [results] = await db.promise().query(sql, [id_member]);
-    //console.log("Results:", results);
-    for (receipt of results) {
-      const [orderResult] = await db
+    let KG = 0,
+      QG = 0,
+      TK = 0,
+      TotalReceipt = 0,
+      totalvoucher = 0,
+      cash = 0,
+      banking = 0,
+      totalMoney = 0; // ✅ Khai báo biến tổng
+
+    const [memberResult] = await db
+      .promise()
+      .query("SELECT id_member FROM members");
+
+    for (const member of memberResult) {
+      const [receipts] = await db
         .promise()
-        .query("SELECT * FROM orders WHERE id_receipt = ?", [
-          receipt.id_receipt,
+        .query("SELECT id_receipt FROM receipts WHERE id_member = ?", [
+          member.id_member,
         ]);
-      //console.log("Order Results:", orderResult);
-      for (book of orderResult) {
-        const bookdata = await db
-          .promise()
-          .query("SELECT * FROM products WHERE id_product = ?", [
-            book.id_product,
-          ]);
-        if (bookdata[0][0].classify === "Sách Ký Gửi") {
-          KG += book.quantity * book.price;
-        } else if (bookdata[0][0].classify === "Sách quyên góp") {
-          QG += book.quantity * book.price;
-        } else if (bookdata[0][0].classify === "Bán Kg") {
-          TK += book.quantity * book.price;
+      TotalReceipt += receipts.length;
+      for (const receipt of receipts) {
+        totalMoney += receipt.total_amount || 0;
+        totalvoucher += receipt.voucher || 0;
+        if (receipt.method_payment === "cash") {
+          cash += 1;
+        } else {
+          banking += 1;
         }
-        console.log(
-          "Book Data:",
-          bookdata[0][0].classify,
-          book.quantity,
-          book.price
-        );
+        const [orders] = await db
+          .promise()
+          .query(
+            "SELECT id_product, quantity, price FROM orders WHERE id_receipt = ?",
+            [receipt.id_receipt]
+          );
+
+        for (const order of orders) {
+          const [productRows] = await db
+            .promise()
+            .query("SELECT classify FROM products WHERE id_product = ?", [
+              order.id_product,
+            ]);
+          const classify = productRows[0]?.classify;
+
+          if (classify === "Sách Ký Gửi") {
+            KG += order.quantity * order.price;
+          } else if (classify === "Sách quyên góp") {
+            QG += order.quantity * order.price;
+          } else if (classify === "Bán Kg") {
+            TK += order.quantity * order.price;
+          }
+
+          console.log("Book Data:", classify, order.quantity, order.price);
+        }
       }
-      // console.log("Receipt Data:", receipt);
     }
+
     res.status(200).json({
       success: true,
       data: {
-        id_member: id_member,
+        totalReceipt: TotalReceipt,
+        totalMoney: totalMoney,
+        totalVoucher: totalvoucher,
+        totalCash: cash,
+        totalBanking: banking,
         totalKG: KG,
         totalQG: QG,
         totalTK: TK,
