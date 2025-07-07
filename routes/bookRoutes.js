@@ -15,11 +15,12 @@ router.get(String(process.env.API_GDO), bookController.getdetails);
 router.get(String(process.env.API_CronJob), bookController.cronjob);
 router.get(String(process.env.API_GGsheet), ConsignorSheet.list_kpi);
 router.get(String(process.env.API_ORDER_LIST), bookController.getOrderList);
+router.get(String(process.env.API_ORDER), bookController.OrderStatistics);
+router.post(String(process.env.API_REGISTER), bookController.registerClient);
 router.get(
   String(process.env.API_ORDER_BY_CASHIER),
   bookController.OrderStatisticsByCashier
 );
-router.post(String(process.env.API_REGISTER), bookController.registerClient);
 // router.get(
 //   String(process.env.API_CHECK_REGISTER),
 //   bookController.checkRegister
