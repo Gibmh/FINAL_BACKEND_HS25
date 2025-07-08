@@ -1,5 +1,6 @@
 const db = require("../models/db");
 const { log } = require("../controllers/updatesheet");
+const { sendEmail } = require("../send_mail/mail_sending");
 
 function getChangedFields(before = {}, after = {}) {
   const changes = [];
@@ -666,20 +667,21 @@ exports.getOrderList = async (req, res) => {
 };
 exports.OrderStatistics = async (req, res) => {
   try {
-    let KG = 0,
-      QG = 0,
-      TK = 0,
-      TotalReceipt = 0,
-      totalvoucher = 0,
-      cash = 0,
-      banking = 0,
-      totalMoney = 0; // ✅ Khai báo biến tổng
-
+    // ✅ Khai báo biến tổng
+    let [data] = {};
     const [memberResult] = await db
       .promise()
       .query("SELECT id_member FROM members");
 
     for (const member of memberResult) {
+      let KG = 0,
+        QG = 0,
+        TK = 0,
+        TotalReceipt = 0,
+        totalvoucher = 0,
+        cash = 0,
+        banking = 0,
+        totalMoney = 0;
       const [receipts] = await db
         .promise()
         .query("SELECT id_receipt FROM receipts WHERE id_member = ?", [
@@ -716,6 +718,7 @@ exports.OrderStatistics = async (req, res) => {
           } else if (classify === "Bán Kg") {
             TK += order.quantity * order.price;
           }
+          // Log book data for debugging
 
           console.log("Book Data:", classify, order.quantity, order.price);
         }
@@ -840,8 +843,15 @@ exports.registerClient = async (req, res) => {
       const [rows] = await db
         .promise()
         .query("SELECT id FROM count_id_attender ORDER BY id DESC LIMIT 1");
-
-      attender_id = "at_" + rows[0]?.id.toString();
+      if (rows[0]?.id < 10) {
+        attender_id = "at_000" + rows[0]?.id.toString();
+      } else if (rows[0]?.id < 100) {
+        attender_id = "at_00" + rows[0]?.id.toString();
+      } else if (rows[0]?.id < 1000) {
+        attender_id = "at_0" + rows[0]?.id.toString();
+      } else {
+        attender_id = "at_" + rows[0]?.id.toString();
+      }
       await db
         .promise()
         .query(
@@ -862,6 +872,16 @@ exports.registerClient = async (req, res) => {
           [attender_id, program.program_id]
         );
     }
+    // Gửi email xác nhận đăng ký
+
+    const subject = "Registration Confirmation";
+    const text = `Thanks ${attender_name} for registering for the event!`;
+    const html = `
+  <h3>Xin chào!</h3>
+  <p>Dưới đây là mã QR của bạn:</p>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?data=${attender_id}&size=200x200" alt="QR Code" />
+`;
+    await sendEmail({ to: email, subject, text, html: html });
     return res.status(201).json({
       success: true,
       message: "Attender registered successfully",
