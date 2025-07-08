@@ -897,9 +897,15 @@ exports.registerClient = async (req, res) => {
 exports.listRegister = async (req, res) => {
   try {
     const [rows] = await db.promise().query("SELECT * FROM attender");
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Attender not found" });
+    for (const row of rows) {
+      const [attendanceRows] = await db
+        .promise()
+        .query("SELECT * FROM attendance WHERE attender_id = ?", [
+          row.attender_id,
+        ]);
+      row.attendance = attendanceRows;
     }
+
     return res.status(200).json({ success: true, data: rows });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
