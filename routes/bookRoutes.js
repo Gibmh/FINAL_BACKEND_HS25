@@ -22,4 +22,5 @@ router.get(
   bookController.OrderStatisticsByCashier
 );
 router.get(String(process.env.API_LIST_REGISTER), bookController.listRegister);
+router.post(String(process.env.API_CHECK_IN), bookController.CheckIn);
 module.exports = router;

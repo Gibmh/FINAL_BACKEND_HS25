@@ -1,6 +1,123 @@
 const db = require("../models/db");
 const { log } = require("../controllers/updatesheet");
 const { sendEmail } = require("../send_mail/mail_sending");
+const e = require("express");
+
+const generateEmailHTML = (userInfo, events) => {
+  const { name, email, attender_id } = userInfo;
+
+  const eventCards = events
+    .map(
+      (event) => `
+  <div class="event-card"
+	  style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
+	  <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
+		  <div
+			  style="width: 40px; height: 40px; background: linear-gradient(135deg, #f6d55c 0%, #ed8d53 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px; flex-shrink: 0;">
+			  <span style="color: #ffffff; font-size: 16px;">📚</span>
+		  </div>
+		  <div style="flex: 1;">
+			  <h4 style="color: #333333; font-size: 16px; margin-bottom: 5px;">${event.program_name}</h4>
+			  <p style="color: #666666; font-size: 14px; margin-bottom: 10px;">⏰ ${event.time}</p>
+			  <p style="color: #555555; font-size: 14px; line-height: 1.5; margin: 0;">${event.description}</p>
+		  </div>
+	  </div>
+  </div>
+  `
+    )
+    .join("");
+
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+    attender_id
+  )}&size=200x200`;
+
+  return `
+  <!DOCTYPE html>
+  <html lang="vi">
+  
+	  <head>
+		  <meta charset="UTF-8">
+		  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+		  <title>Xác nhận đăng ký - Hội Sách Mơ Hỏi Mở</title>
+		  <style>
+			  /* Reset styles */
+			  * {
+				  margin: 0;
+				  padding: 0;
+				  box-sizing: border-box;
+			  }
+  
+			  body {
+				  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+				  line-height: 1.6;
+				  color: #333333;
+				  background-color: #f8f9fa;
+			  }
+  
+			  .container {
+				  max-width: 600px;
+				  margin: 0 auto;
+				  background-color: #ffffff;
+			  }
+		  </style>
+	  </head>
+  
+	  <body style="margin: 0; padding: 20px; background-color: #f8f9fa;">
+		  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f8f9fa;">
+			  <tr>
+				  <td align="center" style="padding: 20px 0;">
+					  <table cellpadding="0" cellspacing="0" border="0" width="600" class="container"
+						  style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+						  <tr>
+							  <td
+								  style="background: linear-gradient(135deg, #f6d55c 0%, #ed8d53 50%, #f15824 100%); padding: 40px 30px; text-align: center;">
+								  <h1 style="color: #ffffff; font-size: 28px; font-weight: bold;">Hội Sách Mơ Hỏi Mở</h1>
+								  <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px;">Xác nhận đăng ký tham gia
+									  sự kiện</p>
+							  </td>
+						  </tr>
+						  <tr>
+							  <td style="padding: 30px;">
+								  <h3 style="color: #333333; font-size: 18px;">🧑‍💼 Thông tin người đăng ký</h3>
+								  <table cellpadding="0" cellspacing="0" border="0" width="100%"
+									  style="background-color: #f8f9fa; border-radius: 8px;">
+									  <tr>
+										  <td style="padding: 15px; border-bottom: 1px solid #e9ecef;">
+											  <strong style="color: #495057;">👤 Họ và tên:</strong>
+											  <span style="color: #6c757d; margin-left: 10px;">${name}</span>
+										  </td>
+									  </tr>
+									  <tr>
+										  <td style="padding: 15px; border-bottom: 1px solid #e9ecef;">
+											  <strong style="color: #495057;">📧 Email:</strong>
+											  <span style="color: #6c757d; margin-left: 10px;">${email}</span>
+										  </td>
+									  </tr>
+								  </table>
+							  </td>
+						  </tr>
+						  <tr>
+							  <td style="padding: 30px;">
+								  <h3 style="color: #333333; font-size: 18px;">🎯 Sự kiện đã đăng ký</h3>
+								  ${eventCards}
+							  </td>
+						  </tr>
+						  <tr>
+							  <td style="padding: 30px; text-align: center;">
+								  <h3 style="color: #333333; font-size: 18px;">📌 Mã QR của bạn</h3>
+								  <img src="${qrApiUrl}" alt="QR Code" style="width: 150px; height: 150px; border: 1px solid #e9ecef; border-radius: 8px;">
+								  <p style="color: #666666; font-size: 14px; margin-top: 10px;">Chụp lại mã QR này để sử dụng tại sự kiện.</p>
+							  </td>
+						  </tr>
+					  </table>
+				  </td>
+			  </tr>
+		  </table>
+	  </body>
+  
+  </html>
+  `;
+};
 
 function getChangedFields(before = {}, after = {}) {
   const changes = [];
@@ -873,16 +990,35 @@ exports.registerClient = async (req, res) => {
         );
     }
     // Gửi email xác nhận đăng ký
+    let subject, text;
     if (state === "new") {
-      const subject = "Registration Confirmation";
-      const text = `Thanks ${attender_name} for registering for the event!`;
-      const html = `
-  <h3>Xin chào!</h3>
-  <p>Dưới đây là mã QR của bạn:</p>
-  <img src="https://api.qrserver.com/v1/create-qr-code/?data=${attender_id}&size=200x200" alt="QR Code" />
-`;
-      await sendEmail({ to: email, subject, text, html: html });
+      subject = "Registration Confirmation";
+      text = `Thanks ${attender_name} for registering for the event!`;
+    } else {
+      subject = "Registration Update";
+      text = `Hello ${attender_name}, your registration has been updated.`;
     }
+    const userInfo = {
+      attender_id: attender_id,
+      name: attender_name,
+      email: email,
+    };
+
+    let allEventRows = [];
+
+    for (const program of programs) {
+      const [rows] = await db
+        .promise()
+        .query("SELECT * FROM programs WHERE program_id = ?", [
+          program.program_id,
+        ]);
+
+      allEventRows.push(...rows); // Nếu rows là mảng kết quả
+    }
+
+    const html = generateEmailHTML(userInfo, allEventRows);
+    await sendEmail({ to: email, subject, text, html: html });
+
     return res.status(201).json({
       success: true,
       message: "Attender registered successfully",
@@ -909,5 +1045,53 @@ exports.listRegister = async (req, res) => {
     return res.status(200).json({ success: true, data: rows });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.CheckIn = async (req, res) => {
+  const { attender_id, program_id } = req.body;
+
+  if (!attender_id || !program_id) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing attender_id or program_id",
+    });
+  }
+
+  try {
+    // Kiểm tra xem bản ghi có tồn tại không
+    const [rows] = await db
+      .promise()
+      .query(
+        "SELECT * FROM attendance WHERE attender_id = ? AND program_id = ?",
+        [attender_id, program_id]
+      );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Attendance record not found",
+      });
+    }
+    const now = new Date();
+    now.setHours(now.getHours() + 7);
+    const formattedTime = now.toISOString().slice(0, 19).replace("T", " ");
+
+    const [result] = await db
+      .promise()
+      .query(
+        "UPDATE attendance SET checkin_time = ? , attended = 1 WHERE program_id = ? AND attender_id = ?",
+        [formattedTime, program_id, attender_id]
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Check-in successful",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error: " + err.message,
+    });
   }
 };
