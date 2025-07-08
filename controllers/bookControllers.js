@@ -873,15 +873,16 @@ exports.registerClient = async (req, res) => {
         );
     }
     // Gửi email xác nhận đăng ký
-
-    const subject = "Registration Confirmation";
-    const text = `Thanks ${attender_name} for registering for the event!`;
-    const html = `
+    if (state === "new") {
+      const subject = "Registration Confirmation";
+      const text = `Thanks ${attender_name} for registering for the event!`;
+      const html = `
   <h3>Xin chào!</h3>
   <p>Dưới đây là mã QR của bạn:</p>
   <img src="https://api.qrserver.com/v1/create-qr-code/?data=${attender_id}&size=200x200" alt="QR Code" />
 `;
-    await sendEmail({ to: email, subject, text, html: html });
+      await sendEmail({ to: email, subject, text, html: html });
+    }
     return res.status(201).json({
       success: true,
       message: "Attender registered successfully",
@@ -893,44 +894,14 @@ exports.registerClient = async (req, res) => {
   }
 };
 
-// exports.checkRegister = async (req, res) => {
-//   const { email } = req.query;
-//   if (!email) {
-//     return res.status(400).json({ message: "Missing email" });
-//   }
-//   try {
-//     // Tìm thông tin người tham dự theo email
-//     const [attenderRows] = await db
-//       .promise()
-//       .query("SELECT * FROM attender WHERE email = ?", [email]);
-
-//     // Nếu đã tồn tại
-//     if (attenderRows.length > 0) {
-//       const attender = attenderRows[0];
-
-//       // Lấy danh sách chương trình người này đã đăng ký
-//       const [programs] = await db
-//         .promise()
-//         .query("SELECT * FROM attendance WHERE attender_id = ?", [
-//           attender.attender_id,
-//         ]);
-
-//       return res.status(200).json({
-//         success: true,
-//         message: "Attender already registered",
-//         data: {
-//           attender,
-//           programs,
-//         },
-//       });
-//     } else {
-//       // Chưa đăng ký
-//       return res.status(200).json({
-//         success: false,
-//         message: "Attender not registered",
-//       });
-//     }
-//   } catch (err) {
-//     return res.status(500).json({ success: false, message: err.message });
-//   }
-// };
+exports.listRegister = async (req, res) => {
+  try {
+    const [rows] = await db.promise().query("SELECT * FROM attender");
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Attender not found" });
+    }
+    return res.status(200).json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
