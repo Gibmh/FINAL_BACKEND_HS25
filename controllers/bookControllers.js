@@ -12,14 +12,9 @@ const generateEmailHTML = (userInfo, events) => {
   <div class="event-card"
 	  style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
 	  <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
-		  <div
-			  style="width: 40px; height: 40px; background: linear-gradient(135deg, #f6d55c 0%, #ed8d53 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px; flex-shrink: 0;">
-			  <span style="color: #ffffff; font-size: 16px;">📚</span>
-		  </div>
 		  <div style="flex: 1;">
 			  <h4 style="color: #333333; font-size: 16px; margin-bottom: 5px;">${event.program_name}</h4>
 			  <p style="color: #666666; font-size: 14px; margin-bottom: 10px;">⏰ ${event.time}</p>
-			  <p style="color: #555555; font-size: 14px; line-height: 1.5; margin: 0;">${event.description}</p>
 		  </div>
 	  </div>
   </div>
@@ -78,19 +73,13 @@ const generateEmailHTML = (userInfo, events) => {
 						  </tr>
 						  <tr>
 							  <td style="padding: 30px;">
-								  <h3 style="color: #333333; font-size: 18px;">🧑‍💼 Thông tin người đăng ký</h3>
+								  <h3 style="color: #333333; font-size: 18px;">Thông tin người đăng ký</h3>
 								  <table cellpadding="0" cellspacing="0" border="0" width="100%"
 									  style="background-color: #f8f9fa; border-radius: 8px;">
 									  <tr>
 										  <td style="padding: 15px; border-bottom: 1px solid #e9ecef;">
 											  <strong style="color: #495057;">👤 Họ và tên:</strong>
 											  <span style="color: #6c757d; margin-left: 10px;">${name}</span>
-										  </td>
-									  </tr>
-									  <tr>
-										  <td style="padding: 15px; border-bottom: 1px solid #e9ecef;">
-											  <strong style="color: #495057;">📧 Email:</strong>
-											  <span style="color: #6c757d; margin-left: 10px;">${email}</span>
 										  </td>
 									  </tr>
 								  </table>
@@ -248,7 +237,6 @@ exports.createObject = async (req, res) => {
         })
       );
 
-      // Lấy lại hóa đơn & đơn hàng sau khi insert
       const [receiptResult] = await db
         .promise()
         .query("SELECT * FROM receipts WHERE id_receipt = ?", [
@@ -992,10 +980,10 @@ exports.registerClient = async (req, res) => {
     // Gửi email xác nhận đăng ký
     let subject, text;
     if (state === "new") {
-      subject = "Registration Confirmation";
+      subject = "[HS25] XÁC NHẬN ĐĂNG KÝ THAM GIA ĐÊM NHẠC/TALKSHOW/…";
       text = `Thanks ${attender_name} for registering for the event!`;
     } else {
-      subject = "Registration Update";
+      subject = "[HS25] CẬP NHẬT ĐĂNG KÝ THAM GIA ĐÊM NHẠC/TALKSHOW/…";
       text = `Hello ${attender_name}, your registration has been updated.`;
     }
     const userInfo = {
