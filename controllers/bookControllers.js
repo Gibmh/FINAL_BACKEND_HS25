@@ -776,7 +776,7 @@ exports.OrderStatistics = async (req, res) => {
     const [memberResult] = await db
       .promise()
       .query(
-        "SELECT id_member, nameFROM membersWHERE id_member IN (SELECT id_member FROM receipts GROUP BY id_member HAVING COUNT(*) > 0 )"
+        "SELECT id_member, name FROM membersWHERE id_member IN (SELECT id_member FROM receipts GROUP BY id_member HAVING COUNT(*) > 0 )"
       );
 
     for (const member of memberResult) {
