@@ -854,12 +854,12 @@ exports.OrderStatistics = async (req, res) => {
       // ✅ Cập nhật thống kê cho member
       member.totalMoney = KG + QG + TK;
       member.totalReceipt = TotalReceipt;
-      member.totalvoucher = totalvoucher;
-      member.cash = cash;
-      member.banking = banking;
-      member.KG = KG;
-      member.QG = QG;
-      member.TK = TK;
+      member.totalVoucher = totalvoucher;
+      member.totalCash = cash;
+      member.totalBanking = banking;
+      member.totalKG = KG;
+      member.totalQG = QG;
+      member.totalTK = TK;
     }
 
     // ✅ Gửi kết quả
