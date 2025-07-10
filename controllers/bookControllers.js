@@ -772,11 +772,12 @@ exports.getOrderList = async (req, res) => {
 };
 exports.OrderStatistics = async (req, res) => {
   try {
-    // ✅ Khai báo biến tổng
-    let [data] = {};
+    // ✅ Lấy tất cả thành viên có vai trò là 'cashier' hoặc 'Admin'
     const [memberResult] = await db
       .promise()
-      .query("SELECT id_member FROM members");
+      .query(
+        "SELECT id_member, name FROM members WHERE role = 'cashier' OR role = 'Admin'"
+      );
 
     for (const member of memberResult) {
       let KG = 0,
@@ -785,22 +786,38 @@ exports.OrderStatistics = async (req, res) => {
         TotalReceipt = 0,
         totalvoucher = 0,
         cash = 0,
-        banking = 0,
-        totalMoney = 0;
+        banking = 0;
+
+      // ✅ Lấy các hóa đơn của từng member
       const [receipts] = await db
         .promise()
-        .query("SELECT id_receipt FROM receipts WHERE id_member = ?", [
-          member.id_member,
-        ]);
-      TotalReceipt += receipts.length;
+        .query(
+          "SELECT id_receipt, total_amount, voucher, payment_method FROM receipts WHERE id_member = ?",
+          [member.id_member]
+        );
+
+      if (!Array.isArray(receipts)) {
+        console.error(
+          `❌ receipts không phải là mảng cho member ${member.id_member}`
+        );
+        continue;
+      }
+
+      TotalReceipt = receipts.length;
+
       for (const receipt of receipts) {
-        totalMoney += receipt.total_amount || 0;
-        totalvoucher += receipt.voucher || 0;
-        if (receipt.method_payment === "cash") {
-          cash += receipt.total_amount || 0;
+        const totalAmount = receipt.total_amount || 0;
+        const voucher = receipt.voucher || 0;
+
+        totalvoucher += voucher;
+
+        if (receipt.payment_method === "cash") {
+          cash += totalAmount;
         } else {
-          banking += receipt.total_amount || 0;
+          banking += totalAmount;
         }
+
+        // ✅ Lấy danh sách orders của hóa đơn
         const [orders] = await db
           .promise()
           .query(
@@ -808,42 +825,50 @@ exports.OrderStatistics = async (req, res) => {
             [receipt.id_receipt]
           );
 
+        if (!Array.isArray(orders)) continue;
+
         for (const order of orders) {
           const [productRows] = await db
             .promise()
             .query("SELECT classify FROM products WHERE id_product = ?", [
               order.id_product,
             ]);
-          const classify = productRows[0]?.classify;
+
+          const classify = productRows[0]?.classify || "";
+
+          const amount = (order.quantity || 0) * (order.price || 0);
 
           if (classify === "Sách Ký Gửi") {
-            KG += order.quantity * order.price;
+            KG += amount;
           } else if (classify === "Sách quyên góp") {
-            QG += order.quantity * order.price;
+            QG += amount;
           } else if (classify === "Bán Kg") {
-            TK += order.quantity * order.price;
+            TK += amount;
           }
-          // Log book data for debugging
 
-          console.log("Book Data:", classify, order.quantity, order.price);
+          // ✅ Debug thông tin sách
+          console.log("📚 Book Data:", classify, order.quantity, order.price);
         }
       }
+
+      // ✅ Cập nhật thống kê cho member
+      member.totalMoney = KG + QG + TK;
+      member.totalReceipt = TotalReceipt;
+      member.totalvoucher = totalvoucher;
+      member.cash = cash;
+      member.banking = banking;
+      member.KG = KG;
+      member.QG = QG;
+      member.TK = TK;
     }
 
+    // ✅ Gửi kết quả
     res.status(200).json({
       success: true,
-      data: {
-        totalReceipt: TotalReceipt,
-        totalMoney: totalMoney,
-        totalVoucher: totalvoucher,
-        totalCash: cash,
-        totalBanking: banking,
-        totalKG: KG,
-        totalQG: QG,
-        totalTK: TK,
-      },
+      data: memberResult,
     });
   } catch (err) {
+    console.error("🔥 Lỗi xử lý OrderStatistics:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -869,6 +894,14 @@ exports.OrderStatisticsByCashier = async (req, res) => {
       .query("SELECT id_receipt FROM receipts WHERE id_member = ?", [
         id_member,
       ]);
+    const [cashierInfo] = await db
+      .promise()
+      .query("SELECT * FROM members WHERE id_member = ?", [id_member]);
+    if (cashierInfo.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Cashier not found" });
+    }
     TotalReceipt += receipts.length;
     for (const receipt of receipts) {
       totalMoney += receipt.total_amount || 0;
@@ -909,6 +942,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
       success: true,
       data: {
         id_member: id_member,
+        cashier_name: cashierInfo[0].name,
         totalReceipt: TotalReceipt,
         totalMoney: totalMoney,
         totalVoucher: totalvoucher,
