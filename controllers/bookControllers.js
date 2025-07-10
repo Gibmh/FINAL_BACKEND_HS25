@@ -776,7 +776,7 @@ exports.OrderStatistics = async (req, res) => {
     const [memberResult] = await db
       .promise()
       .query(
-        "SELECT id_member, name FROM members WHERE role = 'cashier' OR role = 'Admin'"
+        "SELECT id_member, nameFROM membersWHERE id_member IN (SELECT id_member FROM receipts GROUP BY id_member HAVING COUNT(*) > 0 )"
       );
 
     for (const member of memberResult) {
@@ -882,8 +882,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
       TotalReceipt = 0,
       totalvoucher = 0,
       cash = 0,
-      banking = 0,
-      totalMoney = 0; // ✅ Khai báo biến tổng
+      banking = 0;
     if (!id_member) {
       return res
         .status(400)
@@ -904,7 +903,6 @@ exports.OrderStatisticsByCashier = async (req, res) => {
     }
     TotalReceipt += receipts.length;
     for (const receipt of receipts) {
-      totalMoney += receipt.total_amount || 0;
       totalvoucher += receipt.voucher || 0;
       if (receipt.method_payment === "cash") {
         cash += receipt.total_amount || 0;
@@ -944,7 +942,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
         id_member: id_member,
         cashier_name: cashierInfo[0].name,
         totalReceipt: TotalReceipt,
-        totalMoney: totalMoney,
+        totalMoney: KG + QG + TK,
         totalVoucher: totalvoucher,
         totalCash: cash,
         totalBanking: banking,
