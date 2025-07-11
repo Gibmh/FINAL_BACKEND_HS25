@@ -734,12 +734,10 @@ exports.getdetails = async (req, res) => {
               order.id_product,
             ]);
 
-          let product = productResults[0] || {};
-          product.quantity = order.quantity || 0;
+          //let product = productResults[0] || {};
+          productResults[0].quantity = order.quantity || 0;
 
-          return {
-            product,
-          };
+          return productResults[0];
         })
       );
 
