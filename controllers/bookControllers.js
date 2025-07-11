@@ -725,16 +725,27 @@ exports.getdetails = async (req, res) => {
 
       const [orderResults] = await db.promise().query(orderQuery, [id]);
 
-      const productPromises = orderResults.map(async (order) => {
-        const [productResults] = await db
-          .promise()
-          .query(`SELECT * FROM products WHERE id_product = ?`, [
-            order.id_product,
-          ]);
-        return productResults[0];
-      });
+      // Chỉ lấy name và price của product, và quantity của order
+      const ordersWithInfo = await Promise.all(
+        orderResults.map(async (order) => {
+          const [productResults] = await db
+            .promise()
+            .query(`SELECT name, price FROM products WHERE id_product = ?`, [
+              order.id_product,
+            ]);
 
-      responseData.orders = await Promise.all(productPromises);
+          const product = productResults[0] || {};
+
+          return {
+            id_product: order.id_product,
+            name: product.name,
+            price: product.price,
+            quantity: order.quantity,
+          };
+        })
+      );
+
+      responseData.orders = ordersWithInfo;
 
       res.status(200).json({
         success: true,
@@ -835,8 +846,10 @@ exports.OrderStatistics = async (req, res) => {
             ]);
 
           const classify = productRows[0]?.classify || "";
-
-          const amount = (order.quantity || 0) * (order.price || 0);
+          let amount = 0;
+          if (classify !== "Khác") {
+            amount = (order.quantity || 0) * (order.price || 0);
+          }
 
           if (classify === "Sách Ký Gửi") {
             KG += amount;
