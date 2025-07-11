@@ -899,9 +899,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
     }
     const [receipts] = await db
       .promise()
-      .query("SELECT id_receipt FROM receipts WHERE id_member = ?", [
-        id_member,
-      ]);
+      .query("SELECT * FROM receipts WHERE id_member = ?", [id_member]);
     const [cashierInfo] = await db
       .promise()
       .query("SELECT * FROM members WHERE id_member = ?", [id_member]);
@@ -912,12 +910,18 @@ exports.OrderStatisticsByCashier = async (req, res) => {
     }
     TotalReceipt += receipts.length;
     for (const receipt of receipts) {
-      totalvoucher += receipt.voucher || 0;
-      if (receipt.method_payment === "cash") {
-        cash += receipt.total_amount || 0;
+      const totalAmount = receipt.total_amount || 0;
+      const voucher = receipt.voucher || 0;
+
+      totalvoucher += voucher;
+
+      if (receipt.payment_method === "cash") {
+        cash += totalAmount;
       } else {
-        banking += receipt.total_amount || 0;
+        banking += totalAmount;
       }
+
+      // ✅ Lấy danh sách orders của hóa đơn
       const [orders] = await db
         .promise()
         .query(
@@ -925,23 +929,31 @@ exports.OrderStatisticsByCashier = async (req, res) => {
           [receipt.id_receipt]
         );
 
+      if (!Array.isArray(orders)) continue;
+
       for (const order of orders) {
         const [productRows] = await db
           .promise()
           .query("SELECT classify FROM products WHERE id_product = ?", [
             order.id_product,
           ]);
-        const classify = productRows[0]?.classify;
 
-        if (classify === "Sách Ký Gửi") {
-          KG += order.quantity * order.price;
-        } else if (classify === "Sách quyên góp") {
-          QG += order.quantity * order.price;
-        } else if (classify === "Bán Kg") {
-          TK += order.quantity * order.price;
+        const classify = productRows[0]?.classify || "";
+        let amount = 0;
+        if (classify !== "Khác") {
+          amount = (order.quantity || 0) * (order.price || 0);
         }
 
-        console.log("Book Data:", classify, order.quantity, order.price);
+        if (classify === "Sách Ký Gửi") {
+          KG += amount;
+        } else if (classify === "Sách quyên góp") {
+          QG += amount;
+        } else if (classify === "Bán Kg") {
+          TK += amount;
+        }
+
+        // ✅ Debug thông tin sách
+        console.log("📚 Book Data:", classify, order.quantity, order.price);
       }
     }
 
