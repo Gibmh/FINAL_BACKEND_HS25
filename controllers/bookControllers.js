@@ -730,17 +730,15 @@ exports.getdetails = async (req, res) => {
         orderResults.map(async (order) => {
           const [productResults] = await db
             .promise()
-            .query(`SELECT name, price FROM products WHERE id_product = ?`, [
+            .query(`SELECT * FROM products WHERE id_product = ?`, [
               order.id_product,
             ]);
 
-          const product = productResults[0] || {};
+          let product = productResults[0] || {};
+          product.quantity = order.quantity || 0;
 
           return {
-            id_product: order.id_product,
-            name: product.name,
-            price: product.price,
-            quantity: order.quantity,
+            product,
           };
         })
       );
