@@ -1078,9 +1078,9 @@ exports.listRegister = async (req, res) => {
 };
 
 exports.CheckIn = async (req, res) => {
-  const { attender_id, program_id } = req.body;
+  const { attender_id, program_id, id_member } = req.body;
 
-  if (!attender_id || !program_id) {
+  if (!attender_id || !program_id || !id_member) {
     return res.status(400).json({
       success: false,
       message: "Missing attender_id or program_id",
@@ -1109,8 +1109,8 @@ exports.CheckIn = async (req, res) => {
     const [result] = await db
       .promise()
       .query(
-        "UPDATE attendance SET checkin_time = ? , attended = 1 WHERE program_id = ? AND attender_id = ?",
-        [formattedTime, program_id, attender_id]
+        "UPDATE attendance SET checkin_time = ? , attended = 1, id_member = ? WHERE program_id = ? AND attender_id = ?",
+        [formattedTime, program_id, attender_id, id_member]
       );
 
     return res.status(200).json({
