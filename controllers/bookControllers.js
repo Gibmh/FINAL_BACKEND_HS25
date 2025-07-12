@@ -3,22 +3,121 @@ const { log } = require("../controllers/updatesheet");
 const { sendEmail } = require("../send_mail/mail_sending");
 const e = require("express");
 
-const generateEmailHTML = (userInfo, events) => {
-  const { name, email, attender_id } = userInfo;
+// const generateEmailHTML = (userInfo, events) => {
+//   const { name, email, attender_id } = userInfo;
 
-  const eventCards = events
+//   const eventCards = events
+//     .map(
+//       (event) => `
+//   <div class="event-card"
+// 	  style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
+// 	  <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
+// 		  <div style="flex: 1;">
+// 			  <h4 style="color: #333333; font-size: 16px; margin-bottom: 5px;">${event.program_name}</h4>
+// 			  <p style="color: #666666; font-size: 14px; margin-bottom: 10px;">⏰ ${event.time}</p>
+// 		  </div>
+// 	  </div>
+//   </div>
+//   `
+//     )
+//     .join("");
+
+//   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+//     attender_id
+//   )}&size=200x200`;
+
+//   return `
+//   <!DOCTYPE html>
+//   <html lang="vi">
+
+// 	  <head>
+// 		  <meta charset="UTF-8">
+// 		  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+// 		  <title>Xác nhận đăng ký - Hội Sách Mơ Hỏi Mở</title>
+// 		  <style>
+// 			  /* Reset styles */
+// 			  * {
+// 				  margin: 0;
+// 				  padding: 0;
+// 				  box-sizing: border-box;
+// 			  }
+
+// 			  body {
+// 				  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+// 				  line-height: 1.6;
+// 				  color: #333333;
+// 				  background-color: #f8f9fa;
+// 			  }
+
+// 			  .container {
+// 				  max-width: 600px;
+// 				  margin: 0 auto;
+// 				  background-color: #ffffff;
+// 			  }
+// 		  </style>
+// 	  </head>
+
+// 	  <body style="margin: 0; padding: 20px; background-color: #f8f9fa;">
+// 		  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f8f9fa;">
+// 			  <tr>
+// 				  <td align="center" style="padding: 20px 0;">
+// 					  <table cellpadding="0" cellspacing="0" border="0" width="600" class="container"
+// 						  style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+// 						  <tr>
+// 							  <td
+// 								  style="background: linear-gradient(135deg, #f6d55c 0%, #ed8d53 50%, #f15824 100%); padding: 40px 30px; text-align: center;">
+// 								  <h1 style="color: #ffffff; font-size: 28px; font-weight: bold;">Hội Sách Mơ Hỏi Mở</h1>
+// 								  <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px;">Xác nhận đăng ký tham gia
+// 									  sự kiện</p>
+// 							  </td>
+// 						  </tr>
+// 						  <tr>
+// 							  <td style="padding: 30px;">
+// 								  <h3 style="color: #333333; font-size: 18px;">Thông tin người đăng ký</h3>
+// 								  <table cellpadding="0" cellspacing="0" border="0" width="100%"
+// 									  style="background-color: #f8f9fa; border-radius: 8px;">
+// 									  <tr>
+// 										  <td style="padding: 15px; border-bottom: 1px solid #e9ecef;">
+// 											  <strong style="color: #495057;">👤 Họ và tên:</strong>
+// 											  <span style="color: #6c757d; margin-left: 10px;">${name}</span>
+// 										  </td>
+// 									  </tr>
+// 								  </table>
+// 							  </td>
+// 						  </tr>
+// 						  <tr>
+// 							  <td style="padding: 30px;">
+// 								  <h3 style="color: #333333; font-size: 18px;">🎯 Sự kiện đã đăng ký</h3>
+// 								  ${eventCards}
+// 							  </td>
+// 						  </tr>
+// 						  <tr>
+// 							  <td style="padding: 30px; text-align: center;">
+// 								  <h3 style="color: #333333; font-size: 18px;">📌 Mã QR của bạn</h3>
+// 								  <img src="${qrApiUrl}" alt="QR Code" style="width: 150px; height: 150px; border: 1px solid #e9ecef; border-radius: 8px;">
+// 								  <p style="color: #666666; font-size: 14px; margin-top: 10px;">Chụp lại mã QR này để sử dụng tại sự kiện.</p>
+// 							  </td>
+// 						  </tr>
+// 					  </table>
+// 				  </td>
+// 			  </tr>
+// 		  </table>
+// 	  </body>
+
+//   </html>
+//   `;
+// };
+const generateEmailHTML = (userInfo, programs) => {
+  const { name, attender_id } = userInfo;
+
+  const programList = programs
     .map(
-      (event) => `
-  <div class="event-card"
-	  style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-bottom: 15px;">
-	  <div style="display: flex; align-items: flex-start; margin-bottom: 15px;">
-		  <div style="flex: 1;">
-			  <h4 style="color: #333333; font-size: 16px; margin-bottom: 5px;">${event.program_name}</h4>
-			  <p style="color: #666666; font-size: 14px; margin-bottom: 10px;">⏰ ${event.time}</p>
-		  </div>
-	  </div>
-  </div>
-  `
+      (program) => `
+      <li style="font-size: 14px; font-family: 'Be Vietnam Pro', sans-serif; color: #485aa1; line-height: 24px; text-align: justify;">
+        <span style="font-weight: bold; color: #F05824;">${program.program_name}</span>
+        vào lúc ${program.time}
+      </li>
+    `
     )
     .join("");
 
@@ -29,81 +128,76 @@ const generateEmailHTML = (userInfo, events) => {
   return `
   <!DOCTYPE html>
   <html lang="vi">
-  
-	  <head>
-		  <meta charset="UTF-8">
-		  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-		  <title>Xác nhận đăng ký - Hội Sách Mơ Hỏi Mở</title>
-		  <style>
-			  /* Reset styles */
-			  * {
-				  margin: 0;
-				  padding: 0;
-				  box-sizing: border-box;
-			  }
-  
-			  body {
-				  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-				  line-height: 1.6;
-				  color: #333333;
-				  background-color: #f8f9fa;
-			  }
-  
-			  .container {
-				  max-width: 600px;
-				  margin: 0 auto;
-				  background-color: #ffffff;
-			  }
-		  </style>
-	  </head>
-  
-	  <body style="margin: 0; padding: 20px; background-color: #f8f9fa;">
-		  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f8f9fa;">
-			  <tr>
-				  <td align="center" style="padding: 20px 0;">
-					  <table cellpadding="0" cellspacing="0" border="0" width="600" class="container"
-						  style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
-						  <tr>
-							  <td
-								  style="background: linear-gradient(135deg, #f6d55c 0%, #ed8d53 50%, #f15824 100%); padding: 40px 30px; text-align: center;">
-								  <h1 style="color: #ffffff; font-size: 28px; font-weight: bold;">Hội Sách Mơ Hỏi Mở</h1>
-								  <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px;">Xác nhận đăng ký tham gia
-									  sự kiện</p>
-							  </td>
-						  </tr>
-						  <tr>
-							  <td style="padding: 30px;">
-								  <h3 style="color: #333333; font-size: 18px;">Thông tin người đăng ký</h3>
-								  <table cellpadding="0" cellspacing="0" border="0" width="100%"
-									  style="background-color: #f8f9fa; border-radius: 8px;">
-									  <tr>
-										  <td style="padding: 15px; border-bottom: 1px solid #e9ecef;">
-											  <strong style="color: #495057;">👤 Họ và tên:</strong>
-											  <span style="color: #6c757d; margin-left: 10px;">${name}</span>
-										  </td>
-									  </tr>
-								  </table>
-							  </td>
-						  </tr>
-						  <tr>
-							  <td style="padding: 30px;">
-								  <h3 style="color: #333333; font-size: 18px;">🎯 Sự kiện đã đăng ký</h3>
-								  ${eventCards}
-							  </td>
-						  </tr>
-						  <tr>
-							  <td style="padding: 30px; text-align: center;">
-								  <h3 style="color: #333333; font-size: 18px;">📌 Mã QR của bạn</h3>
-								  <img src="${qrApiUrl}" alt="QR Code" style="width: 150px; height: 150px; border: 1px solid #e9ecef; border-radius: 8px;">
-								  <p style="color: #666666; font-size: 14px; margin-top: 10px;">Chụp lại mã QR này để sử dụng tại sự kiện.</p>
-							  </td>
-						  </tr>
-					  </table>
-				  </td>
-			  </tr>
-		  </table>
-	  </body>
-  
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Xác nhận đăng ký - Hội Sách Mơ Hỏi Mở</title>
+    </head>
+    <body style="margin: 0; padding: 0; width: 100%; background-color: #f3f3f3; font-family: 'Be Vietnam Pro', sans-serif;">
+      <div style="max-width: 512px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden;">    
+          <a
+                                                                                        href="https://www.facebook.com/hoisachmohoimo"
+                                                                                        style="font-size: 10px;"
+                                                                                        target="_blank"> <img
+                                                                                            src="https://drive.google.com/thumbnail?id=1Swbha9axvfGQb4ptjqgpQ3fJUx522x9s&sz=w2500"
+                                                                                            width="100%"
+                                                                                            alt="Chọn 'I trust content from mohoimo.hoisach@gmail.com' nếu banner không được hiện lên đúng cách."
+                                                                                            style="display:block;border:0;font-size: 12px;font-family:Be Vietnam Pro,sans-serif;color:#485aa1;"
+                                                                                            class="CToWUd"> </a>
+        <div style="padding: 20px 26px;">
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            Thân chào <span style="font-weight: bold; color: #F05824;">${name}</span>,
+          </p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            Lời đầu tiên, chúng mình xin chân thành cảm ơn bạn đã quan tâm và đăng ký tham <span style="font-weight: bold; color: #F05824;">Hội sách Mơ Hỏi Mở 2025</span>.
+          </p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            <span style="font-weight: bold; color: #F05824;">Các sự kiện đã đăng ký:</span>
+          </p>
+          <ul style="margin: 0 0 15px 0; padding-left: 20px;">
+            ${programList}
+          </ul>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            <span style="font-weight: bold; color: #F05824;">Địa điểm tổ chức:</span> Trung tâm Văn hóa
+                                                                                    Vĩnh Long (Trung tâm Văn hoá - Điện
+                                                                                    ảnh tỉnh Bến Tre cũ) - 88/1 Đường 30
+                                                                                    Tháng 4, phường An Hội, tỉnh
+                                                                                    Vĩnh Long.
+          </p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            Chúng mình rất hân hạnh được chào đón
+                                                                                    bạn đến với Hội sách - nơi quy tụ
+                                                                                    những đầu sách bổ ích, các cuộc trò
+                                                                                    chuyện
+                                                                                    truyền cảm hứng và nhiều hoạt động
+                                                                                    vui chơi hấp dẫn khác.
+          </p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            Để thuận tiện cho việc điểm danh khi đến sự kiện, bạn vui lòng sử dụng mã QR dưới đây nhé. Bạn có thể lưu mã này vào điện thoại hoặc in ra giấy.
+          </p>
+            <div style="text-align: center; margin-top: 30px; margin-bottom: 30px;">
+            <img src="${qrApiUrl}" alt="QR Code" style="width: 150px; height: 150px;" />
+            </div>  
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+
+            Nếu có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng mình qua email này hoặc <a href="https://www.facebook.com/hoisachmohoimo" style="font-size: 14px; font-weight: bold; color: #F05824; text-align: justify; line-height: 24px;">fanpage của Hội sách Mơ Hỏi Mở</a>. Hẹn gặp bạn tại Hội sách Mơ Hỏi Mở 2025!
+          </p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            Thân ái,<br><span style="font-weight: bold; color: #F05824;">Ban Tổ Chức Hội sách Mơ Hỏi Mở 2025</span>
+          </p>
+<a
+                                                                                                        href="https://www.facebook.com/hoisachmohoimo"
+                                                                                                        style="font-size: 10px;"
+                                                                                                        target="_blank">
+                                                                                                        <img src="https://drive.google.com/thumbnail?id=188q1S0pIF50eOgxHYclkFAFBbRZezimv&sz=w2500"
+                                                                                                            width="100%"
+                                                                                                            alt="Chọn 'I trust content from mohoimo.hoisach@gmail.com' nếu banner không được hiện lên đúng cách."
+                                                                                                            style="display:block;border:0;font-size: 12px;font-family:Be Vietnam Pro,sans-serif;color:#485aa1;"
+                                                                                                            class="CToWUd">
+                                                                                                    </a>
+        </div>
+      </div>
+    </body>
   </html>
   `;
 };
@@ -1033,10 +1127,10 @@ exports.registerClient = async (req, res) => {
     // Gửi email xác nhận đăng ký
     let subject, text;
     if (state === "new") {
-      subject = "[HS25] XÁC NHẬN ĐĂNG KÝ THAM GIA ĐÊM NHẠC/TALKSHOW/…";
+      subject = "[HS25] XÁC NHẬN ĐĂNG KÝ THAM GIA";
       text = `Thanks ${attender_name} for registering for the event!`;
     } else {
-      subject = "[HS25] CẬP NHẬT ĐĂNG KÝ THAM GIA ĐÊM NHẠC/TALKSHOW/…";
+      subject = "[HS25] CẬP NHẬT ĐĂNG KÝ THAM GIA";
       text = `Hello ${attender_name}, your registration has been updated.`;
     }
     const userInfo = {
@@ -1053,7 +1147,7 @@ exports.registerClient = async (req, res) => {
         .query("SELECT * FROM programs WHERE program_id = ?", [
           program.program_id,
         ]);
-
+      console.log("Program id:", program.program_id);
       allEventRows.push(...rows); // Nếu rows là mảng kết quả
     }
 

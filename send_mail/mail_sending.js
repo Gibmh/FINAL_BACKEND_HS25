@@ -13,7 +13,7 @@ exports.sendEmail = async function sendEmail({ to, subject, text, html }) {
 
   try {
     const info = await transporter.sendMail({ from, to, subject, text, html });
-    console.log("✅ Email sent:", info.messageId);
+    console.log("✅ Email sent:", to);
     return info;
   } catch (error) {
     console.error("❌ Failed to send email:", error);
