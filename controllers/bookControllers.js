@@ -914,9 +914,9 @@ exports.OrderStatistics = async (req, res) => {
         totalvoucher += voucher;
 
         if (receipt.payment_method === "cash") {
-          cash += totalAmount;
+          cash += totalAmount - voucher;
         } else {
-          banking += totalAmount;
+          banking += totalAmount - voucher;
         }
 
         // ✅ Lấy danh sách orders của hóa đơn
@@ -956,7 +956,7 @@ exports.OrderStatistics = async (req, res) => {
       }
 
       // ✅ Cập nhật thống kê cho member
-      member.totalMoney = KG + QG + TK;
+      member.totalMoney = cash + banking - totalvoucher;
       member.totalReceipt = TotalReceipt;
       member.totalVoucher = totalvoucher;
       member.totalCash = cash;
@@ -1011,9 +1011,9 @@ exports.OrderStatisticsByCashier = async (req, res) => {
       totalvoucher += voucher;
 
       if (receipt.payment_method === "cash") {
-        cash += totalAmount;
+        cash += totalAmount - voucher;
       } else {
-        banking += totalAmount;
+        banking += totalAmount - voucher;
       }
 
       // ✅ Lấy danh sách orders của hóa đơn
@@ -1058,7 +1058,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
         id_member: id_member,
         cashier_name: cashierInfo[0].name,
         totalReceipt: TotalReceipt,
-        totalMoney: KG + QG + TK,
+        totalMoney: cash + banking - totalvoucher,
         totalVoucher: totalvoucher,
         totalCash: cash,
         totalBanking: banking,
