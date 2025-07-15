@@ -1,10 +1,14 @@
 import csv
 
-table_name = "consignors"
-csv_file = "consignors.csv"
-output_file = "input.txt"  # file sẽ ghi kết quả SQL vào
+table_name = "products"
+csv_file = "products.csv"
+output_file = "input.txt"
 
-numeric_columns = {'cash_back', 'count'}  # ví dụ bạn điều chỉnh theo table
+# Các cột kiểu số nguyên
+numeric_columns = {
+    'bc_cost', 'discount', 'price', 'cash_back',
+    'quantity', 'sold', 'stock'
+}
 
 with open(csv_file, newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
@@ -14,20 +18,23 @@ with open(csv_file, newline='', encoding='utf-8') as f:
     for row in reader:
         values = []
         for col, val in zip(headers, row):
-            if val == '':
+            if val.strip() == '':
                 values.append('NULL')
             elif col in numeric_columns:
                 values.append(val)
             else:
                 escaped = val.replace("'", "''")
-                values.append(f"'{escaped}'")  # bao giá trị chuỗi trong nháy đơn
+                values.append(f"'{escaped}'")
         values_str = ", ".join(values)
 
-        update_part = ", ".join([f"{col} = new.{col}" for col in headers if col.lower() != 'id_consignor'])
+        update_part = ", ".join([
+            f"{col} = VALUES({col})"
+            for col in headers if col.lower() != 'id_product'
+        ])
 
         sql = (
             f"INSERT INTO {table_name} ({', '.join(headers)}) "
-            f"VALUES ({values_str}) AS new "
+            f"VALUES ({values_str}) "
             f"ON DUPLICATE KEY UPDATE {update_part};"
         )
         insert_statements.append(sql)

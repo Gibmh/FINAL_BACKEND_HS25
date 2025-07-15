@@ -148,8 +148,9 @@ const generateEmailHTML = (userInfo, programs) => {
           <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
             Thân chào <span style="font-weight: bold; color: #F05824;">${name}</span>,
           </p>
-          <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
-            Lời đầu tiên, chúng mình xin chân thành cảm ơn bạn đã quan tâm và đăng ký tham <span style="font-weight: bold; color: #F05824;">Hội sách Mơ Hỏi Mở 2025</span>.
+         <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
+            Lời đầu tiên, chúng mình xin chân thành cảm ơn bạn đã quan tâm và đăng ký tham gia <span style="font-weight: bold; color: #F05824;">Hội sách Mơ Hỏi Mở 2025</span>. Tuy nhiên, vì một vài sai sót mà chúng mình đã ghi nhận chưa chính xác một số hoạt động tại Hội sách mà bạn đã đăng ký. Vì thế, chúng mình xin phép gửi lại email này để xác nhận lại thông tin đăng ký một cách đầy đủ và đúng nhất.
+
           </p>
           <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
             <span style="font-weight: bold; color: #F05824;">Các sự kiện đã đăng ký:</span>
@@ -180,7 +181,7 @@ const generateEmailHTML = (userInfo, programs) => {
             </div>  
             <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
 
-            Nếu có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng mình qua email này hoặc <a href="https://www.facebook.com/hoisachmohoimo" style="font-size: 14px; font-weight: bold; color: #F05824; text-align: justify; line-height: 24px;">fanpage của Hội sách Mơ Hỏi Mở</a>. Hẹn gặp bạn tại Hội sách Mơ Hỏi Mở 2025!
+            Một lần nữa, chúng mình cảm ơn bạn vì đã thấu hiểu và thông cảm cho sự nhầm lẫn của chúng mình. Nếu có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng mình qua email này hoặc <a href="https://www.facebook.com/hoisachmohoimo" style="font-size: 14px; font-weight: bold; color: #F05824; text-align: justify; line-height: 24px;">fanpage của Hội sách Mơ Hỏi Mở</a>. Hẹn gặp bạn tại Hội sách Mơ Hỏi Mở 2025!
           </p>
           <p style="margin: 0 0 15px 0; font-size: 14px; color: #485aa1; line-height: 24px; text-align: justify;">
             Thân ái,<br><span style="font-weight: bold; color: #F05824;">Ban Tổ Chức Hội sách Mơ Hỏi Mở 2025</span>
@@ -1130,7 +1131,8 @@ exports.registerClient = async (req, res) => {
       subject = "[HS25] XÁC NHẬN ĐĂNG KÝ THAM GIA";
       text = `Thanks ${attender_name} for registering for the event!`;
     } else {
-      subject = "[HS25] CẬP NHẬT ĐĂNG KÝ THAM GIA";
+      //subject = "[HS25] CẬP NHẬT ĐĂNG KÝ THAM GIA";
+      subject = "[HS25] XÁC NHẬN ĐĂNG KÝ THAM GIA";
       text = `Hello ${attender_name}, your registration has been updated.`;
     }
     const userInfo = {
@@ -1192,36 +1194,60 @@ exports.CheckIn = async (req, res) => {
       message: "Missing attender_id or program_id",
     });
   }
+  console.log(
+    "CheckIn Params - attender_id:",
+    attender_id,
+    "program_id:",
+    program_id,
+    "id_member:",
+    id_member
+  );
 
   try {
     // Kiểm tra xem bản ghi có tồn tại không
+    const [checkRows] = await db
+      .promise()
+      .query("SELECT * FROM attendance WHERE attender_id = ?", [attender_id]);
+    if (checkRows.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: "Mã người tham dự không tồn tại",
+      });
+    }
     const [rows] = await db
       .promise()
       .query(
         "SELECT * FROM attendance WHERE attender_id = ? AND program_id = ?",
         [attender_id, program_id]
       );
-
+    console.log("Attendance Rows:", rows);
     if (rows.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
-        message: "Attendance record not found",
+        message: "Người tham dự không đăng ký chương trình này",
       });
     }
     const now = new Date();
     now.setHours(now.getHours() + 7);
     const formattedTime = now.toISOString().slice(0, 19).replace("T", " ");
-
+    console.log("Formatted Check-in Time:", formattedTime);
     const [result] = await db
       .promise()
       .query(
         "UPDATE attendance SET checkin_time = ? , attended = 1, id_member = ? WHERE program_id = ? AND attender_id = ?",
-        [formattedTime, program_id, attender_id, id_member]
+        [formattedTime, id_member, program_id, attender_id]
       );
+    // if (result.affectedRows === 0) {
+    //   return res.status(200).json({
+    //     success: false,
+    //     message: " ",
+    //   });
+    // }
 
     return res.status(200).json({
       success: true,
-      message: "Check-in successful",
+      message: "Check-in thành công",
+      //data: result,
     });
   } catch (err) {
     return res.status(500).json({
