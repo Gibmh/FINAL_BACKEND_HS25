@@ -885,6 +885,7 @@ exports.OrderStatistics = async (req, res) => {
       let KG = 0,
         QG = 0,
         TK = 0,
+        NXB = 0,
         TotalReceipt = 0,
         totalvoucher = 0,
         cash = 0,
@@ -915,6 +916,10 @@ exports.OrderStatistics = async (req, res) => {
 
         if (receipt.payment_method === "cash") {
           cash += totalAmount - voucher;
+          console.log(cash);
+          if (cash % 1000 >= 500) cash = cash + 1000 - (cash % 1000);
+          else cash = cash - (cash % 1000);
+          console.log("after", cash);
         } else {
           banking += totalAmount - voucher;
         }
@@ -948,15 +953,14 @@ exports.OrderStatistics = async (req, res) => {
             QG += amount;
           } else if (classify === "Bán Kg") {
             TK += amount;
+          } else if (classify === "Sách NXB") {
+            NXB += amount;
           }
-
-          // ✅ Debug thông tin sách
-          console.log("📚 Book Data:", classify, order.quantity, order.price);
         }
       }
 
       // ✅ Cập nhật thống kê cho member
-      member.totalMoney = cash + banking - totalvoucher;
+      member.totalMoney = KG + QG + TK + NXB - totalvoucher;
       member.totalReceipt = TotalReceipt;
       member.totalVoucher = totalvoucher;
       member.totalCash = cash;
@@ -964,6 +968,7 @@ exports.OrderStatistics = async (req, res) => {
       member.totalKG = KG;
       member.totalQG = QG;
       member.totalTK = TK;
+      member.totalNXB = NXB;
     }
 
     // ✅ Gửi kết quả
@@ -983,6 +988,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
     let KG = 0,
       QG = 0,
       TK = 0,
+      NXB = 0,
       TotalReceipt = 0,
       totalvoucher = 0,
       cash = 0,
@@ -1012,6 +1018,10 @@ exports.OrderStatisticsByCashier = async (req, res) => {
 
       if (receipt.payment_method === "cash") {
         cash += totalAmount - voucher;
+        console.log(cash);
+        if (cash % 1000 >= 500) cash = cash + 1000 - (cash % 1000);
+        else cash = cash - (cash % 1000);
+        console.log("after", cash);
       } else {
         banking += totalAmount - voucher;
       }
@@ -1045,10 +1055,9 @@ exports.OrderStatisticsByCashier = async (req, res) => {
           QG += amount;
         } else if (classify === "Bán Kg") {
           TK += amount;
+        } else if (classify === "Sách NXB") {
+          NXB += amount;
         }
-
-        // ✅ Debug thông tin sách
-        console.log("📚 Book Data:", classify, order.quantity, order.price);
       }
     }
 
@@ -1058,13 +1067,14 @@ exports.OrderStatisticsByCashier = async (req, res) => {
         id_member: id_member,
         cashier_name: cashierInfo[0].name,
         totalReceipt: TotalReceipt,
-        totalMoney: cash + banking - totalvoucher,
+        totalMoney: KG + QG + TK + NXB - totalvoucher,
         totalVoucher: totalvoucher,
         totalCash: cash,
         totalBanking: banking,
         totalKG: KG,
         totalQG: QG,
         totalTK: TK,
+        totalNXB: NXB,
       },
     });
   } catch (err) {
@@ -1254,5 +1264,16 @@ exports.CheckIn = async (req, res) => {
       success: false,
       message: "Internal server error: " + err.message,
     });
+  }
+};
+
+exports.getListbookvalidate = async (req, res) => {
+  try {
+    const [rows] = await db
+      .promise()
+      .query("SELECT * FROM products WHERE validate = 1");
+    return res.status(200).json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

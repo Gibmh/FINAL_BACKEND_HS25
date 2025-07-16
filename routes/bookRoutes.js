@@ -23,4 +23,5 @@ router.get(
 );
 router.get(String(process.env.API_LIST_REGISTER), bookController.listRegister);
 router.post(String(process.env.API_CHECK_IN), bookController.CheckIn);
+router.get(String(process.env.API_VP), bookController.getListbookvalidate);
 module.exports = router;
