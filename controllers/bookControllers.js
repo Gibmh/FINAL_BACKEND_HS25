@@ -872,9 +872,10 @@ exports.getOrderList = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
 exports.OrderStatistics = async (req, res) => {
   try {
-    // ✅ Lấy tất cả thành viên có vai trò là 'cashier' hoặc 'Admin'
+    // âœ… Láº¥y táº¥t cáº£ thÃ nh viÃªn cÃ³ vai trÃ² lÃ  'cashier' hoáº·c 'Admin'
     const [memberResult] = await db
       .promise()
       .query(
@@ -891,7 +892,7 @@ exports.OrderStatistics = async (req, res) => {
         cash = 0,
         banking = 0;
 
-      // ✅ Lấy các hóa đơn của từng member
+      // âœ… Láº¥y cÃ¡c hÃ³a Ä‘Æ¡n cá»§a tá»«ng member
       const [receipts] = await db
         .promise()
         .query(
@@ -901,7 +902,7 @@ exports.OrderStatistics = async (req, res) => {
 
       if (!Array.isArray(receipts)) {
         console.error(
-          `❌ receipts không phải là mảng cho member ${member.id_member}`
+          `âŒ receipts khÃ´ng pháº£i lÃ  máº£ng cho member ${member.id_member}`
         );
         continue;
       }
@@ -924,7 +925,7 @@ exports.OrderStatistics = async (req, res) => {
           banking += totalAmount - voucher;
         }
 
-        // ✅ Lấy danh sách orders của hóa đơn
+        // âœ… Láº¥y danh sÃ¡ch orders cá»§a hÃ³a Ä‘Æ¡n
         const [orders] = await db
           .promise()
           .query(
@@ -943,25 +944,25 @@ exports.OrderStatistics = async (req, res) => {
 
           const classify = productRows[0]?.classify || "";
           let amount = 0;
-          if (classify !== "Khác") {
+          if (classify !== "KhÃ¡c") {
             amount = (order.quantity || 0) * (order.price || 0);
           }
 
-          if (classify === "Sách Ký Gửi") {
+          if (classify === "SÃ¡ch KÃ½ Gá»­i") {
             KG += amount;
-          } else if (classify === "Sách quyên góp") {
+          } else if (classify === "SÃ¡ch QuyÃªn GÃ³p") {
             QG += amount;
-          } else if (classify === "Bán Kg") {
+          } else if (classify === "BÃ¡n Kg") {
             TK += amount;
-          } else if (classify === "Sách NXB") {
+          } else if (classify === "SÃ¡ch NXB") {
             NXB += amount;
           }
         }
       }
 
-      // ✅ Cập nhật thống kê cho member
-      member.totalMoney = KG + QG + TK + NXB - totalvoucher;
-      member.totalReceipt = TotalReceipt;
+      // âœ… Cáº­p nháº­t thá»‘ng kÃª cho member
+      (member.totalMoney = cash + banking), //KG + QG + TK + NXB - totalvoucher;
+        (member.totalReceipt = TotalReceipt);
       member.totalVoucher = totalvoucher;
       member.totalCash = cash;
       member.totalBanking = banking;
@@ -971,13 +972,13 @@ exports.OrderStatistics = async (req, res) => {
       member.totalNXB = NXB;
     }
 
-    // ✅ Gửi kết quả
+    // âœ… Gá»­i káº¿t quáº£
     res.status(200).json({
       success: true,
       data: memberResult,
     });
   } catch (err) {
-    console.error("🔥 Lỗi xử lý OrderStatistics:", err);
+    console.error("ðŸ”¥ Lá»—i xá»­ lÃ½ OrderStatistics:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -1026,7 +1027,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
         banking += totalAmount - voucher;
       }
 
-      // ✅ Lấy danh sách orders của hóa đơn
+      // âœ… Láº¥y danh sÃ¡ch orders cá»§a hÃ³a Ä‘Æ¡n
       const [orders] = await db
         .promise()
         .query(
@@ -1045,17 +1046,17 @@ exports.OrderStatisticsByCashier = async (req, res) => {
 
         const classify = productRows[0]?.classify || "";
         let amount = 0;
-        if (classify !== "Khác") {
+        if (classify !== "KhÃ¡c") {
           amount = (order.quantity || 0) * (order.price || 0);
         }
 
-        if (classify === "Sách Ký Gửi") {
+        if (classify === "SÃ¡ch KÃ½ Gá»­i") {
           KG += amount;
-        } else if (classify === "Sách quyên góp") {
+        } else if (classify === "SÃ¡ch QuyÃªn GÃ³p") {
           QG += amount;
-        } else if (classify === "Bán Kg") {
+        } else if (classify === "BÃ¡n Kg") {
           TK += amount;
-        } else if (classify === "Sách NXB") {
+        } else if (classify === "SÃ¡ch NXB") {
           NXB += amount;
         }
       }
@@ -1067,7 +1068,7 @@ exports.OrderStatisticsByCashier = async (req, res) => {
         id_member: id_member,
         cashier_name: cashierInfo[0].name,
         totalReceipt: TotalReceipt,
-        totalMoney: KG + QG + TK + NXB - totalvoucher,
+        totalMoney: cash + banking, // KG + QG + TK + NXB - totalvoucher,
         totalVoucher: totalvoucher,
         totalCash: cash,
         totalBanking: banking,
@@ -1355,18 +1356,6 @@ exports.OrderStatisticsConsignor = async (req, res) => {
         .query("SELECT * FROM products WHERE id_consignor = ? AND sold > 0", [
           consignor.id_consignor,
         ]);
-      // let sold_products = [];
-      // for (const product of products) {
-      //   sold_products.push({
-      //     id_product: product.id_product,
-      //     name_product: product.name_product,
-      //     quantity: product.quantity,
-      //     sold: product.sold,
-      //     stock: product.stock,
-      //     price: product.price,
-
-      //   });
-      // }
       let total_cash_back = cash_back[0].total_cash_back || 0;
       let total_sale = sale[0].total_sale || 0;
       let total_sold = sold[0].total_sold || 0;
