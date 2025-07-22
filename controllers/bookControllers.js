@@ -1277,3 +1277,112 @@ exports.getListbookvalidate = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.getCheckInList = async (req, res) => {
+  try {
+    const program_id = ["1_KM", "2_VHLS", "3_NT", "4_DN", "5_TV"];
+    let person_accepted = [];
+
+    const [attenders] = await db.promise().query("SELECT * FROM attender");
+
+    for (const attender of attenders) {
+      const [data_checkin] = await db.promise().query(
+        `SELECT COUNT(*) as cnt
+       FROM attendance 
+       WHERE attender_id = ? 
+         AND attended = 1 
+         AND program_id IN (?)`,
+        [attender.attender_id, program_id]
+      );
+
+      const count = data_checkin[0].cnt;
+
+      if (count > 2) {
+        person_accepted.push(attender); // chỉ cần push người
+      }
+    }
+
+    return res.status(200).json({ success: true, data: person_accepted });
+
+    // const acceptedMap = {}; // Dùng để đếm số lần tham gia của từng người
+
+    // for (const row of rows) {
+    //   if (program_id.includes(row.program_id) && row.attended === 1) {
+    //     if (!acceptedMap[row.attender_id]) {
+    //       acceptedMap[row.attender_id] = { count: 0, sampleRow: row };
+    //     }
+    //     acceptedMap[row.attender_id].count += 1;
+    //   }
+    // }
+
+    // // Duyệt và lấy những người đã tham gia > 2 lần
+    // for (const attender_id in acceptedMap) {
+    //   if (acceptedMap[attender_id].count > 2) {
+    //     person_accepted.push(acceptedMap[attender_id].sampleRow);
+    //   }
+    // }
+
+    // return res.status(200).json({ success: true, data: person_accepted });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+exports.OrderStatisticsConsignor = async (req, res) => {
+  try {
+    let data = [];
+    const [consignors] = await db.promise().query("SELECT * FROM consignors");
+    for (consignor of consignors) {
+      let [sale] = await db
+        .promise()
+        .query(
+          "SELECT SUM(price * sold) AS total_sale FROM products WHERE id_consignor = ?",
+          [consignor.id_consignor]
+        );
+      let [cash_back] = await db
+        .promise()
+        .query(
+          "SELECT SUM(cash_back * sold) AS total_cash_back FROM products WHERE id_consignor = ?",
+          [consignor.id_consignor]
+        );
+      let [sold] = await db
+        .promise()
+        .query(
+          "SELECT SUM(sold) AS total_sold FROM products WHERE id_consignor = ?",
+          [consignor.id_consignor]
+        );
+      let [products] = await db
+        .promise()
+        .query("SELECT * FROM products WHERE id_consignor = ? AND sold > 0", [
+          consignor.id_consignor,
+        ]);
+      // let sold_products = [];
+      // for (const product of products) {
+      //   sold_products.push({
+      //     id_product: product.id_product,
+      //     name_product: product.name_product,
+      //     quantity: product.quantity,
+      //     sold: product.sold,
+      //     stock: product.stock,
+      //     price: product.price,
+
+      //   });
+      // }
+      let total_cash_back = cash_back[0].total_cash_back || 0;
+      let total_sale = sale[0].total_sale || 0;
+      let total_sold = sold[0].total_sold || 0;
+      if (total_sale > 0)
+        data.push({
+          id_consignor: consignor.id_consignor,
+          name: consignor.name,
+          total_sale: parseInt(total_sale),
+          total_cash_back: parseInt(total_cash_back),
+          profited: total_sale - total_cash_back,
+          total_sold: parseInt(total_sold),
+          sold_products: products,
+        });
+    }
+    return res.status(200).json({ success: true, data: data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
