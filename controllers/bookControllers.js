@@ -944,17 +944,17 @@ exports.OrderStatistics = async (req, res) => {
 
           const classify = productRows[0]?.classify || "";
           let amount = 0;
-          if (classify !== "KhÃ¡c") {
+          if (classify !== "Khác") {
             amount = (order.quantity || 0) * (order.price || 0);
           }
 
-          if (classify === "SÃ¡ch KÃ½ Gá»­i") {
+          if (classify === "Sách Ký Gửi") {
             KG += amount;
-          } else if (classify === "SÃ¡ch QuyÃªn GÃ³p") {
+          } else if (classify === "Sách Quyên Góp") {
             QG += amount;
-          } else if (classify === "BÃ¡n Kg") {
+          } else if (classify === "Bán Kg") {
             TK += amount;
-          } else if (classify === "SÃ¡ch NXB") {
+          } else if (classify === "Sách NXB") {
             NXB += amount;
           }
         }
@@ -1050,13 +1050,13 @@ exports.OrderStatisticsByCashier = async (req, res) => {
           amount = (order.quantity || 0) * (order.price || 0);
         }
 
-        if (classify === "SÃ¡ch KÃ½ Gá»­i") {
+        if (classify === "Sách Ký Gửi") {
           KG += amount;
-        } else if (classify === "SÃ¡ch QuyÃªn GÃ³p") {
+        } else if (classify === "Sách Quyên Góp") {
           QG += amount;
-        } else if (classify === "BÃ¡n Kg") {
+        } else if (classify === "Bán Kg") {
           TK += amount;
-        } else if (classify === "SÃ¡ch NXB") {
+        } else if (classify === "Sách NXB") {
           NXB += amount;
         }
       }
